@@ -5,6 +5,7 @@ struct SetTargetSheet: View {
     @ObservedObject var budget: Budget
     let category: Category
     @Environment(\.dismiss) private var dismiss
+    @FocusState private var isAmountFocused: Bool
     
     @State private var targetType: TargetType = .monthly
     @State private var amount = ""
@@ -27,6 +28,15 @@ struct SetTargetSheet: View {
                 
                 TextField("Target Amount", text: $amount)
                     .keyboardType(.decimalPad)
+                    .focused($isAmountFocused)
+                    .toolbar {
+                        ToolbarItemGroup(placement: .keyboard) {
+                            Spacer()
+                            Button("Done") {
+                                isAmountFocused = false
+                            }
+                        }
+                    }
                 
                 if targetType == .byDate {
                     DatePicker("Target Date", selection: $targetDate, displayedComponents: .date)
@@ -53,17 +63,14 @@ struct SetTargetSheet: View {
         let target: Target
         switch targetType {
         case .monthly:
-            target = Target(type: .monthly(amount: amountDouble), funded: 0)
+            target = Target(type: .monthly(amount: amountDouble))
         case .weekly:
-            target = Target(type: .weekly(amount: amountDouble), funded: 0)
+            target = Target(type: .weekly(amount: amountDouble))
         case .byDate:
-            target = Target(type: .byDate(amount: amountDouble, date: targetDate), funded: 0)
+            target = Target(type: .byDate(amount: amountDouble, date: targetDate))
         }
         
-        if let (groupIndex, categoryIndex) = budget.findCategory(byId: category.id) {
-            budget.categoryGroups[groupIndex].categories[categoryIndex].target = target
-        }
-        
+        budget.setTarget(for: category.id, target: target)
         dismiss()
     }
 }

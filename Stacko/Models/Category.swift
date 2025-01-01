@@ -18,6 +18,12 @@ struct Category: Identifiable, Codable {
     var available: Double {
         allocated - spent
     }
+    
+    var targetProgress: Double {
+        guard let target = target else { return 0 }
+        
+        return allocated
+    }
 }
 
 struct Target: Codable {
@@ -28,5 +34,4 @@ struct Target: Codable {
     }
     
     let type: TargetType
-    var funded: Double
 } 

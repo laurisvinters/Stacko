@@ -2,7 +2,21 @@ import SwiftUI
 
 struct CategoryDetailSheet: View {
     @ObservedObject var budget: Budget
-    let category: Category
+    @State private var categoryId: UUID  // Store ID instead of Category
+    
+    // Add computed property to get current category state
+    private var category: Category {
+        if let (groupIndex, categoryIndex) = budget.findCategory(byId: categoryId) {
+            return budget.categoryGroups[groupIndex].categories[categoryIndex]
+        }
+        return Category(id: categoryId, name: "", emoji: nil, target: nil, allocated: 0, spent: 0)
+    }
+    
+    init(budget: Budget, category: Category) {
+        self.budget = budget
+        self._categoryId = State(initialValue: category.id)
+    }
+    
     @Environment(\.dismiss) var dismiss
     @State private var showingSetTarget = false
     @State private var allocationAmount = ""
@@ -32,6 +46,19 @@ struct CategoryDetailSheet: View {
     
     private var available: Double {
         allocated - spent
+    }
+    
+    private var targetAmount: Double {
+        guard let target = category.target else { return 0 }
+        switch target.type {
+        case .monthly(let amount), .weekly(let amount), .byDate(let amount, _):
+            return amount
+        }
+    }
+    
+    private var targetProgress: Double {
+        guard let target = category.target else { return 0 }
+        return allocated / targetAmount
     }
     
     var body: some View {
@@ -75,26 +102,53 @@ struct CategoryDetailSheet: View {
                 
                 Section("Quick Actions") {
                     if let target = category.target {
-                        HStack {
-                            Text("Target")
-                            Spacer()
-                            Text(target.funded, format: .currency(code: "USD"))
-                            Text("of")
-                            switch target.type {
-                            case .monthly(let amount):
-                                Text(amount, format: .currency(code: "USD"))
-                            case .weekly(let amount):
-                                Text(amount, format: .currency(code: "USD"))
-                            case .byDate(let amount, let date):
-                                Text(amount, format: .currency(code: "USD"))
-                                Text("by")
-                                Text(date, format: .dateTime.month().day())
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("Target")
+                                    .font(.headline)
+                                Spacer()
+                                Button("Edit") {
+                                    showingSetTarget = true
+                                }
+                                .font(.caption)
                             }
+                            
+                            HStack {
+                                switch target.type {
+                                case .monthly(let amount):
+                                    Text("Monthly target:")
+                                    Spacer()
+                                    Text(amount, format: .currency(code: "USD"))
+                                case .weekly(let amount):
+                                    Text("Weekly target:")
+                                    Spacer()
+                                    Text(amount, format: .currency(code: "USD"))
+                                case .byDate(let amount, let date):
+                                    VStack(alignment: .leading) {
+                                        Text("Target by \(date.formatted(date: .abbreviated, time: .omitted)):")
+                                        Text(amount, format: .currency(code: "USD"))
+                                    }
+                                }
+                            }
+                            .foregroundStyle(.secondary)
+                            
+                            ProgressView(value: allocated, total: targetAmount)
+                                .tint(targetProgress < 1.0 ? .blue : .green)
+                            
+                            HStack {
+                                Text("Progress:")
+                                Spacer()
+                                Text(allocated, format: .currency(code: "USD"))
+                                Text("of")
+                                Text(targetAmount, format: .currency(code: "USD"))
+                                Text("(\(Int(targetProgress * 100))%)")
+                            }
+                            .font(.caption)
                         }
-                    }
-                    
-                    Button("Set Target") {
-                        showingSetTarget = true
+                    } else {
+                        Button("Set Target") {
+                            showingSetTarget = true
+                        }
                     }
                 }
                 
