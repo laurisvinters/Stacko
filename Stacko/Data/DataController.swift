@@ -8,13 +8,21 @@ class DataController: ObservableObject {
     init() {
         container = NSPersistentContainer(name: "StackoModel")
         
+        // Add these options for development
+        let description = container.persistentStoreDescriptions.first
+        description?.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)
+        description?.setOption(true as NSNumber, forKey: NSInferMappingModelAutomaticallyOption)
+        
         container.loadPersistentStores { description, error in
             if let error = error {
                 print("Core Data failed to load: \(error.localizedDescription)")
+                // Handle the error appropriately
+                fatalError("Failed to load Core Data store: \(error)")
             }
         }
         
         container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        container.viewContext.automaticallyMergesChangesFromParent = true
     }
     
     func save() {
@@ -23,6 +31,8 @@ class DataController: ObservableObject {
                 try container.viewContext.save()
             } catch {
                 print("Error saving context: \(error)")
+                // Handle the error appropriately
+                container.viewContext.rollback()
             }
         }
     }
@@ -30,7 +40,10 @@ class DataController: ObservableObject {
     // MARK: - Fetch Methods with Conversion
     
     func fetchAllAccounts() -> [Account] {
+        guard let owner = getCurrentUser() else { return [] }
+        
         let request = CDAccount.fetchRequest()
+        request.predicate = NSPredicate(format: "owner == %@", owner)
         request.sortDescriptors = [NSSortDescriptor(keyPath: \CDAccount.name, ascending: true)]
         
         guard let accounts = try? container.viewContext.fetch(request) else { return [] }
@@ -57,7 +70,10 @@ class DataController: ObservableObject {
     }
     
     func fetchAllCategoryGroups() -> [CategoryGroup] {
+        guard let owner = getCurrentUser() else { return [] }
+        
         let request = CDCategoryGroup.fetchRequest()
+        request.predicate = NSPredicate(format: "owner == %@", owner)
         request.sortDescriptors = [NSSortDescriptor(keyPath: \CDCategoryGroup.order, ascending: true)]
         
         guard let groups = try? container.viewContext.fetch(request) else { return [] }
@@ -87,7 +103,10 @@ class DataController: ObservableObject {
     }
     
     func fetchAllTransactions() -> [Transaction] {
+        guard let owner = getCurrentUser() else { return [] }
+        
         let request = CDTransaction.fetchRequest()
+        request.predicate = NSPredicate(format: "owner == %@", owner)
         request.sortDescriptors = [NSSortDescriptor(keyPath: \CDTransaction.date, ascending: false)]
         
         guard let transactions = try? container.viewContext.fetch(request) else { return [] }
@@ -117,12 +136,12 @@ class DataController: ObservableObject {
         
         switch targetType {
         case "monthly":
-            return Target(type: .monthly(amount: category.targteAmount))
+            return Target(type: .monthly(amount: category.targetAmount))
         case "weekly":
-            return Target(type: .weekly(amount: category.targteAmount))
+            return Target(type: .weekly(amount: category.targetAmount))
         case "byDate":
             guard let date = category.targetDate else { return nil }
-            return Target(type: .byDate(amount: category.targteAmount, date: date))
+            return Target(type: .byDate(amount: category.targetAmount, date: date))
         default:
             return nil
         }
@@ -144,6 +163,8 @@ class DataController: ObservableObject {
     
     // MARK: - Account Methods
     func addAccount(name: String, type: Account.AccountType, category: Account.AccountCategory = .personal, icon: String) {
+        guard let owner = getCurrentUser() else { return }
+        
         let account = CDAccount(context: container.viewContext)
         account.id = UUID()
         account.name = name
@@ -153,24 +174,29 @@ class DataController: ObservableObject {
         account.balance = 0
         account.clearedBalance = 0
         account.isArchived = false
+        account.owner = owner
         
         save()
     }
     
     // MARK: - Category Methods
     func addCategoryGroup(name: String, emoji: String?) -> CDCategoryGroup {
+        guard let owner = getCurrentUser() else { fatalError("No user logged in") }
+        
         let group = CDCategoryGroup(context: container.viewContext)
         group.id = UUID()
         group.name = name
         group.emoji = emoji
         group.order = Int16(fetchAllCategoryGroups().count)
+        group.owner = owner
         
         save()
         return group
     }
     
     func addCategory(name: String, emoji: String?, groupId: UUID, target: Target? = nil) {
-        guard let group = fetchCategoryGroup(id: groupId) else { return }
+        guard let owner = getCurrentUser(),
+              let group = fetchCategoryGroup(id: groupId) else { return }
         
         let category = CDCategory(context: container.viewContext)
         category.id = UUID()
@@ -179,6 +205,7 @@ class DataController: ObservableObject {
         category.group = group
         category.allocated = 0
         category.spent = 0
+        category.owner = owner
         
         if let target = target {
             saveTarget(target, for: category)
@@ -189,7 +216,8 @@ class DataController: ObservableObject {
     
     // MARK: - Transaction Methods
     func addTransaction(_ transaction: Transaction) {
-        guard let account = fetchAccount(id: transaction.accountId),
+        guard let owner = getCurrentUser(),
+              let account = fetchAccount(id: transaction.accountId),
               let category = fetchCategory(id: transaction.categoryId) else { return }
         
         let cdTransaction = CDTransaction(context: container.viewContext)
@@ -201,6 +229,7 @@ class DataController: ObservableObject {
         cdTransaction.isIncome = transaction.isIncome
         cdTransaction.account = account
         cdTransaction.category = category
+        cdTransaction.owner = owner
         
         if let toAccountId = transaction.toAccountId,
            let toAccount = fetchAccount(id: toAccountId) {
@@ -212,20 +241,26 @@ class DataController: ObservableObject {
     }
     
     private func fetchAccount(id: UUID) -> CDAccount? {
+        guard let owner = getCurrentUser() else { return nil }
+        
         let request = CDAccount.fetchRequest()
-        request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
+        request.predicate = NSPredicate(format: "id == %@ AND owner == %@", id as CVarArg, owner)
         return try? container.viewContext.fetch(request).first
     }
     
     private func fetchCategory(id: UUID) -> CDCategory? {
+        guard let owner = getCurrentUser() else { return nil }
+        
         let request = CDCategory.fetchRequest()
-        request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
+        request.predicate = NSPredicate(format: "id == %@ AND owner == %@", id as CVarArg, owner)
         return try? container.viewContext.fetch(request).first
     }
     
     private func fetchCategoryGroup(id: UUID) -> CDCategoryGroup? {
+        guard let owner = getCurrentUser() else { return nil }
+        
         let request = CDCategoryGroup.fetchRequest()
-        request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
+        request.predicate = NSPredicate(format: "id == %@ AND owner == %@", id as CVarArg, owner)
         return try? container.viewContext.fetch(request).first
     }
     
@@ -233,13 +268,13 @@ class DataController: ObservableObject {
         switch target.type {
         case .monthly(let amount):
             category.targetType = "monthly"
-            category.targteAmount = amount
+            category.targetAmount = amount
         case .weekly(let amount):
             category.targetType = "weekly"
-            category.targteAmount = amount
+            category.targetAmount = amount
         case .byDate(let amount, let date):
             category.targetType = "byDate"
-            category.targteAmount = amount
+            category.targetAmount = amount
             category.targetDate = date
         }
     }
@@ -264,7 +299,8 @@ class DataController: ObservableObject {
     }
     
     func createTransfer(from fromId: UUID, to toId: UUID, amount: Double, date: Date, note: String?) {
-        guard let fromAccount = fetchAccount(id: fromId),
+        guard let owner = getCurrentUser(),
+              let fromAccount = fetchAccount(id: fromId),
               let toAccount = fetchAccount(id: toId) else { return }
         
         let transfer = CDTransaction(context: container.viewContext)
@@ -276,13 +312,15 @@ class DataController: ObservableObject {
         transfer.isIncome = false
         transfer.account = fromAccount
         transfer.toAccount = toAccount
+        transfer.owner = owner
         
         updateBalances(for: transfer)
         save()
     }
     
     func addTemplate(_ template: TransactionTemplate) {
-        guard let category = fetchCategory(id: template.categoryId) else { return }
+        guard let owner = getCurrentUser(),
+              let category = fetchCategory(id: template.categoryId) else { return }
         
         let cdTemplate = CDTemplate(context: container.viewContext)
         cdTemplate.id = template.id
@@ -292,12 +330,16 @@ class DataController: ObservableObject {
         cdTemplate.isIncome = template.isIncome
         cdTemplate.category = category
         cdTemplate.recurrence = template.recurrence?.rawValue
+        cdTemplate.owner = owner
         
         save()
     }
     
     func fetchAllTemplates() -> [TransactionTemplate] {
+        guard let owner = getCurrentUser() else { return [] }
+        
         let request = CDTemplate.fetchRequest()
+        request.predicate = NSPredicate(format: "owner == %@", owner)
         request.sortDescriptors = [NSSortDescriptor(keyPath: \CDTemplate.name, ascending: true)]
         
         guard let templates = try? container.viewContext.fetch(request) else { return [] }
@@ -320,9 +362,10 @@ class DataController: ObservableObject {
     }
     
     func createTransactionFromTemplate(_ template: TransactionTemplate) {
-        // Get first non-archived account
+        guard let owner = getCurrentUser() else { return }
+        
         let request = CDAccount.fetchRequest()
-        request.predicate = NSPredicate(format: "isArchived == NO")
+        request.predicate = NSPredicate(format: "isArchived == NO AND owner == %@", owner)
         request.fetchLimit = 1
         
         guard let firstAccount = try? container.viewContext.fetch(request).first,
@@ -341,5 +384,12 @@ class DataController: ObservableObject {
         )
         
         addTransaction(transaction)
+    }
+    
+    private func getCurrentUser() -> CDUser? {
+        guard let userId = UserDefaults.standard.string(forKey: "currentUserId") else { return nil }
+        let request = CDUser.fetchRequest()
+        request.predicate = NSPredicate(format: "id == %@", userId)
+        return try? container.viewContext.fetch(request).first
     }
 } 

@@ -11,6 +11,7 @@
         <attribute name="name" attributeType="String"/>
         <attribute name="notes" optional="YES" attributeType="String"/>
         <attribute name="type" attributeType="String"/>
+        <relationship name="owner" maxCount="1" deletionRule="Nullify" destinationEntity="CDUser" inverseName="accounts" inverseEntity="CDUser"/>
         <relationship name="transactions" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="CDTransaction" inverseName="account" inverseEntity="CDTransaction"/>
         <relationship name="transfersTo" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="CDTransaction" inverseName="toAccount" inverseEntity="CDTransaction"/>
     </entity>
@@ -20,10 +21,11 @@
         <attribute name="id" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="name" attributeType="String"/>
         <attribute name="spent" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="targetAmount" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="targetDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="targetType" optional="YES" attributeType="String"/>
-        <attribute name="targteAmount" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <relationship name="group" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="CDCategoryGroup" inverseName="categories" inverseEntity="CDCategoryGroup"/>
+        <relationship name="owner" maxCount="1" deletionRule="Nullify" destinationEntity="CDUser" inverseName="categories" inverseEntity="CDUser"/>
         <relationship name="templates" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="CDTemplate" inverseName="category" inverseEntity="CDTemplate"/>
         <relationship name="transactions" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="CDTransaction" inverseName="category" inverseEntity="CDTransaction"/>
     </entity>
@@ -33,6 +35,7 @@
         <attribute name="name" attributeType="String"/>
         <attribute name="order" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
         <relationship name="categories" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="CDCategory" inverseName="group" inverseEntity="CDCategory"/>
+        <relationship name="owner" maxCount="1" deletionRule="Nullify" destinationEntity="CDUser" inverseName="categoryGroups" inverseEntity="CDUser"/>
     </entity>
     <entity name="CDTemplate" representedClassName="CDTemplate" syncable="YES" codeGenerationType="class">
         <attribute name="amount" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
@@ -41,17 +44,32 @@
         <attribute name="name" attributeType="String"/>
         <attribute name="payee" attributeType="String"/>
         <attribute name="recurrence" optional="YES" attributeType="String"/>
-        <relationship name="category" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="CDCategory" inverseName="templates" inverseEntity="CDCategory"/>
+        <relationship name="category" maxCount="1" deletionRule="Nullify" destinationEntity="CDCategory" inverseName="templates" inverseEntity="CDCategory"/>
+        <relationship name="owner" maxCount="1" deletionRule="Nullify" destinationEntity="CDUser" inverseName="templates" inverseEntity="CDUser"/>
     </entity>
     <entity name="CDTransaction" representedClassName="CDTransaction" syncable="YES" codeGenerationType="class">
-        <attribute name="amount" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
-        <attribute name="date" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
-        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
-        <attribute name="isIncome" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="amount" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="date" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="id" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="isIncome" attributeType="Boolean" usesScalarValueType="YES"/>
         <attribute name="note" optional="YES" attributeType="String"/>
-        <attribute name="payee" optional="YES" attributeType="String"/>
+        <attribute name="payee" attributeType="String"/>
         <relationship name="account" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="CDAccount" inverseName="transactions" inverseEntity="CDAccount"/>
         <relationship name="category" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="CDCategory" inverseName="transactions" inverseEntity="CDCategory"/>
+        <relationship name="owner" maxCount="1" deletionRule="Nullify" destinationEntity="CDUser" inverseName="transactions" inverseEntity="CDUser"/>
         <relationship name="toAccount" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="CDAccount" inverseName="transfersTo" inverseEntity="CDAccount"/>
+    </entity>
+    <entity name="CDUser" representedClassName="CDUser" syncable="YES" codeGenerationType="class">
+        <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="email" attributeType="String"/>
+        <attribute name="id" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="lastLoginAt" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="name" attributeType="String"/>
+        <attribute name="passwordHash" attributeType="String"/>
+        <relationship name="accounts" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="CDAccount" inverseName="owner" inverseEntity="CDAccount"/>
+        <relationship name="categories" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="CDCategory" inverseName="owner" inverseEntity="CDCategory"/>
+        <relationship name="categoryGroups" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="CDCategoryGroup" inverseName="owner" inverseEntity="CDCategoryGroup"/>
+        <relationship name="templates" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="CDTemplate" inverseName="owner" inverseEntity="CDTemplate"/>
+        <relationship name="transactions" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="CDTransaction" inverseName="owner" inverseEntity="CDTransaction"/>
     </entity>
 </model>

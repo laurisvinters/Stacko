@@ -8,48 +8,25 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var dataController = DataController()
-    @StateObject private var budget: Budget
-    
-    init() {
-        let controller = DataController()
-        _budget = StateObject(wrappedValue: Budget(dataController: controller))
-    }
+    @ObservedObject var authManager: AuthenticationManager
+    @ObservedObject var budget: Budget
     
     var body: some View {
-        TabView {
-            NavigationStack {
-                BudgetView(budget: budget)
-            }
-            .tabItem {
-                Label("Budget", systemImage: "dollarsign.circle")
-            }
-            
-            NavigationStack {
-                AccountsView(budget: budget)
-            }
-            .tabItem {
-                Label("Accounts", systemImage: "creditcard")
-            }
-            
-            NavigationStack {
-                TransactionsView(budget: budget)
-            }
-            .tabItem {
-                Label("Transactions", systemImage: "list.bullet")
-            }
-            
-            NavigationStack {
-                ReportsView(budget: budget)
-            }
-            .tabItem {
-                Label("Reports", systemImage: "chart.bar")
+        Group {
+            if authManager.currentUser != nil {
+                MainView(authManager: authManager, budget: budget)
+            } else {
+                SignInView(authManager: authManager)
             }
         }
-        .environment(\.managedObjectContext, dataController.container.viewContext)
+        .environment(\.managedObjectContext, budget.dataController.container.viewContext)
     }
 }
 
 #Preview {
-    ContentView()
+    let dataController = DataController()
+    let budget = Budget(dataController: dataController)
+    let authManager = AuthenticationManager(dataController: dataController, budget: budget)
+    
+    return ContentView(authManager: authManager, budget: budget)
 }

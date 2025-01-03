@@ -3,7 +3,7 @@ import SwiftUI
 import CoreData
 
 class Budget: ObservableObject {
-    private let dataController: DataController
+    let dataController: DataController
     
     @Published private(set) var accounts: [Account] = []
     @Published private(set) var categoryGroups: [CategoryGroup] = []
@@ -12,6 +12,10 @@ class Budget: ObservableObject {
     
     init(dataController: DataController) {
         self.dataController = dataController
+        loadData()
+    }
+    
+    func reload() {
         loadData()
     }
     
