@@ -25,6 +25,7 @@ class AuthenticationManager: ObservableObject {
             UserDefaults.standard.set(user.id.uuidString, forKey: "currentUserId")
         }
         self.currentUser = user
+        dataController.clearCache()
         budget.reload()
     }
     
@@ -95,6 +96,7 @@ class AuthenticationManager: ObservableObject {
         UserDefaults.standard.removeObject(forKey: "currentUser")
         UserDefaults.standard.removeObject(forKey: "currentUserId")
         currentUser = nil
+        dataController.clearCache()
         budget.reload()
     }
     

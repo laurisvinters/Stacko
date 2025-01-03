@@ -4,6 +4,7 @@ import CoreData
 
 class Budget: ObservableObject {
     let dataController: DataController
+    private var reloadTask: Task<Void, Never>?
     
     @Published private(set) var accounts: [Account] = []
     @Published private(set) var categoryGroups: [CategoryGroup] = []
@@ -16,7 +17,16 @@ class Budget: ObservableObject {
     }
     
     func reload() {
-        loadData()
+        // Cancel any pending reload
+        reloadTask?.cancel()
+        
+        // Create new reload task with delay
+        reloadTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second delay
+            if !Task.isCancelled {
+                loadData()
+            }
+        }
     }
     
     private func loadData() {

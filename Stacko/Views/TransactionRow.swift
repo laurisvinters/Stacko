@@ -11,19 +11,43 @@ struct TransactionRow: View {
     }
     
     var body: some View {
+        EquatableTransactionRow(
+            payee: transaction.payee,
+            categoryName: category?.name ?? "Uncategorized",
+            amount: transaction.amount,
+            isIncome: transaction.isIncome
+        )
+    }
+}
+
+// Create a separate equatable view
+private struct EquatableTransactionRow: View, Equatable {
+    let payee: String
+    let categoryName: String
+    let amount: Double
+    let isIncome: Bool
+    
+    var body: some View {
         HStack {
             VStack(alignment: .leading) {
-                Text(transaction.payee)
+                Text(payee)
                     .font(.headline)
-                Text(category?.name ?? "Uncategorized")
+                Text(categoryName)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             
             Spacer()
             
-            Text(transaction.amount, format: .currency(code: "USD"))
-                .foregroundStyle(transaction.isIncome ? .green : .primary)
+            Text(amount, format: .currency(code: "USD"))
+                .foregroundStyle(isIncome ? .green : .primary)
         }
+    }
+    
+    static func == (lhs: EquatableTransactionRow, rhs: EquatableTransactionRow) -> Bool {
+        lhs.payee == rhs.payee &&
+        lhs.categoryName == rhs.categoryName &&
+        lhs.amount == rhs.amount &&
+        lhs.isIncome == rhs.isIncome
     }
 } 

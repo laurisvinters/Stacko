@@ -3,6 +3,12 @@ import SwiftUI
 struct QuickAddTransactionSheet: View {
     @ObservedObject var budget: Budget
     @Environment(\.dismiss) private var dismiss
+    @FocusState private var focusedField: Field?
+    
+    private enum Field {
+        case amount
+        case payee
+    }
     
     @State private var amount = ""
     @State private var payee = ""
@@ -10,6 +16,7 @@ struct QuickAddTransactionSheet: View {
     @State private var selectedAccountId: UUID?
     @State private var isIncome = false
     @State private var date = Date()
+    @State private var keyboardHeight: CGFloat = 0
     
     var body: some View {
         NavigationStack {
@@ -17,8 +24,10 @@ struct QuickAddTransactionSheet: View {
                 Section {
                     TextField("Amount", text: $amount)
                         .keyboardType(.decimalPad)
+                        .focused($focusedField, equals: .amount)
                     
                     TextField("Payee", text: $payee)
+                        .focused($focusedField, equals: .payee)
                     
                     Picker("Category", selection: $selectedCategoryId) {
                         ForEach(budget.categoryGroups) { group in
@@ -64,7 +73,29 @@ struct QuickAddTransactionSheet: View {
                 if selectedAccountId == nil {
                     selectedAccountId = budget.accounts.first?.id
                 }
+                
+                // Set initial focus to amount field
+                focusedField = .amount
+                
+                NotificationCenter.default.addObserver(
+                    forName: UIResponder.keyboardWillShowNotification,
+                    object: nil,
+                    queue: .main
+                ) { notification in
+                    if let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
+                        keyboardHeight = keyboardFrame.height
+                    }
+                }
+                
+                NotificationCenter.default.addObserver(
+                    forName: UIResponder.keyboardWillHideNotification,
+                    object: nil,
+                    queue: .main
+                ) { _ in
+                    keyboardHeight = 0
+                }
             }
+            .padding(.bottom, keyboardHeight)
         }
     }
     
@@ -97,6 +128,7 @@ struct QuickAddTransactionSheet: View {
         )
         
         budget.addTransaction(transaction)
+        HapticManager.shared.impact()
         dismiss()
     }
 }

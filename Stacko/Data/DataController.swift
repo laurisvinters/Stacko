@@ -4,6 +4,7 @@ import SwiftUI
 
 class DataController: ObservableObject {
     let container: NSPersistentContainer
+    private var currentUserCache: CDUser?
     
     init() {
         container = NSPersistentContainer(name: "StackoModel")
@@ -45,6 +46,7 @@ class DataController: ObservableObject {
         let request = CDAccount.fetchRequest()
         request.predicate = NSPredicate(format: "owner == %@", owner)
         request.sortDescriptors = [NSSortDescriptor(keyPath: \CDAccount.name, ascending: true)]
+        request.fetchBatchSize = 20
         
         guard let accounts = try? container.viewContext.fetch(request) else { return [] }
         return accounts.compactMap { cdAccount in
@@ -108,6 +110,7 @@ class DataController: ObservableObject {
         let request = CDTransaction.fetchRequest()
         request.predicate = NSPredicate(format: "owner == %@", owner)
         request.sortDescriptors = [NSSortDescriptor(keyPath: \CDTransaction.date, ascending: false)]
+        request.fetchBatchSize = 50
         
         guard let transactions = try? container.viewContext.fetch(request) else { return [] }
         return transactions.compactMap { cdTransaction in
@@ -387,9 +390,22 @@ class DataController: ObservableObject {
     }
     
     private func getCurrentUser() -> CDUser? {
+        // Return cached user if available
+        if let cached = currentUserCache {
+            return cached
+        }
+        
         guard let userId = UserDefaults.standard.string(forKey: "currentUserId") else { return nil }
         let request = CDUser.fetchRequest()
         request.predicate = NSPredicate(format: "id == %@", userId)
-        return try? container.viewContext.fetch(request).first
+        
+        // Cache the result before returning
+        currentUserCache = try? container.viewContext.fetch(request).first
+        return currentUserCache
+    }
+    
+    // Clear cache when user changes
+    func clearCache() {
+        currentUserCache = nil
     }
 } 

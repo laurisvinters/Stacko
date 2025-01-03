@@ -7,8 +7,10 @@ struct TransactionsView: View {
     var body: some View {
         NavigationStack {
             List {
-                ForEach(budget.transactions.sorted(by: { $0.date > $1.date })) { transaction in
-                    TransactionRow(transaction: transaction, budget: budget)
+                LazyVStack {
+                    ForEach(budget.transactions.sorted(by: { $0.date > $1.date })) { transaction in
+                        TransactionRow(transaction: transaction, budget: budget)
+                    }
                 }
             }
             .navigationTitle("Transactions")
