@@ -40,5 +40,5 @@ struct TransactionsView: View {
 }
 
 #Preview {
-    TransactionsView(budget: Budget())
+    TransactionsView(budget: Budget(dataController: DataController()))
 } 

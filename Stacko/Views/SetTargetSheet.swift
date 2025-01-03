@@ -76,15 +76,12 @@ struct SetTargetSheet: View {
 }
 
 #Preview {
-    SetTargetSheet(
-        budget: Budget(),
-        category: Category(
-            id: UUID(),
-            name: "Test Category",
-            emoji: "🧪",
-            target: nil,
-            allocated: 100,
-            spent: 0
-        )
-    )
+    SetTargetSheet(budget: Budget(dataController: DataController()), category: Category(
+        id: UUID(),
+        name: "Test",
+        emoji: "🎯",
+        target: nil,
+        allocated: 0,
+        spent: 0
+    ))
 } 

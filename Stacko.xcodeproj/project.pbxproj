@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A40134942D26F04400C205FE /* StackoModel.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = A40134922D26F04400C205FE /* StackoModel.xcdatamodeld */; };
+		A40134972D2843BD00C205FE /* StackoModel.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = A40134952D2843BD00C205FE /* StackoModel.xcdatamodeld */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -28,7 +28,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		A40134932D26F04400C205FE /* StackoModel.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = StackoModel.xcdatamodel; sourceTree = "<group>"; };
+		A40134962D2843BD00C205FE /* StackoModel.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = StackoModel.xcdatamodel; sourceTree = "<group>"; };
 		A43F11682D2589B50006557C /* Stacko.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Stacko.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A43F11782D2589B80006557C /* StackoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = StackoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A43F11822D2589B80006557C /* StackoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = StackoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -80,7 +80,7 @@
 		A43F115F2D2589B50006557C = {
 			isa = PBXGroup;
 			children = (
-				A40134922D26F04400C205FE /* StackoModel.xcdatamodeld */,
+				A40134952D2843BD00C205FE /* StackoModel.xcdatamodeld */,
 				A43F116A2D2589B50006557C /* Stacko */,
 				A43F117B2D2589B80006557C /* StackoTests */,
 				A43F11852D2589B80006557C /* StackoUITests */,
@@ -242,7 +242,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A40134942D26F04400C205FE /* StackoModel.xcdatamodeld in Sources */,
+				A40134972D2843BD00C205FE /* StackoModel.xcdatamodeld in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -573,12 +573,12 @@
 /* End XCConfigurationList section */
 
 /* Begin XCVersionGroup section */
-		A40134922D26F04400C205FE /* StackoModel.xcdatamodeld */ = {
+		A40134952D2843BD00C205FE /* StackoModel.xcdatamodeld */ = {
 			isa = XCVersionGroup;
 			children = (
-				A40134932D26F04400C205FE /* StackoModel.xcdatamodel */,
+				A40134962D2843BD00C205FE /* StackoModel.xcdatamodel */,
 			);
-			currentVersion = A40134932D26F04400C205FE /* StackoModel.xcdatamodel */;
+			currentVersion = A40134962D2843BD00C205FE /* StackoModel.xcdatamodel */;
 			path = StackoModel.xcdatamodeld;
 			sourceTree = "<group>";
 			versionGroupType = wrapper.xcdatamodel;

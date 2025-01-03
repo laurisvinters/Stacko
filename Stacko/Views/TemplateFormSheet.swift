@@ -37,13 +37,8 @@ struct TemplateFormSheet: View {
                 Section("Recurrence") {
                     Picker("Repeat", selection: $recurrence) {
                         Text("None").tag(Optional<TransactionTemplate.Recurrence>.none)
-                        ForEach([
-                            TransactionTemplate.Recurrence.daily,
-                            .weekly,
-                            .monthly,
-                            .yearly
-                        ], id: \.self) { recurrence in
-                            Text(recurrence.description).tag(Optional(recurrence))
+                        ForEach(TransactionTemplate.Recurrence.allCases, id: \.self) { recurrence in
+                            Text(recurrence.rawValue).tag(Optional(recurrence))
                         }
                     }
                 }
@@ -74,20 +69,17 @@ struct TemplateFormSheet: View {
     }
     
     private func saveTemplate() {
-        guard let amountDouble = Double(amount),
-              let categoryId = selectedCategoryId else { return }
-        
         let template = TransactionTemplate(
             id: UUID(),
             name: name,
             payee: payee,
-            categoryId: categoryId,
-            amount: amountDouble,
+            categoryId: selectedCategoryId ?? budget.categoryGroups[0].categories[0].id,
+            amount: Double(amount) ?? 0,
             isIncome: isIncome,
             recurrence: recurrence
         )
         
-        budget.templates.append(template)
+        budget.addTemplate(template)
         dismiss()
     }
 } 

@@ -8,7 +8,13 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var budget = Budget()
+    @StateObject private var dataController = DataController()
+    @StateObject private var budget: Budget
+    
+    init() {
+        let controller = DataController()
+        _budget = StateObject(wrappedValue: Budget(dataController: controller))
+    }
     
     var body: some View {
         TabView {
@@ -40,6 +46,7 @@ struct ContentView: View {
                 Label("Reports", systemImage: "chart.bar")
             }
         }
+        .environment(\.managedObjectContext, dataController.container.viewContext)
     }
 }
 

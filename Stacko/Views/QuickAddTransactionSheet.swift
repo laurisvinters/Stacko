@@ -102,5 +102,5 @@ struct QuickAddTransactionSheet: View {
 }
 
 #Preview {
-    QuickAddTransactionSheet(budget: Budget())
+    QuickAddTransactionSheet(budget: Budget(dataController: DataController()))
 } 

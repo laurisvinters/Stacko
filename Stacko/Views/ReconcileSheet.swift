@@ -93,13 +93,7 @@ struct ReconcileSheet: View {
     
     private func reconcile() {
         guard let targetBalance = Double(statementBalance) else { return }
-        
-        // Update cleared balance
-        if let index = budget.accounts.firstIndex(where: { $0.id == account.id }) {
-            budget.accounts[index].clearedBalance = targetBalance
-            budget.accounts[index].lastReconciled = statementDate
-        }
-        
+        budget.reconcileAccount(id: account.id, balance: targetBalance, date: statementDate)
         dismiss()
     }
 } 

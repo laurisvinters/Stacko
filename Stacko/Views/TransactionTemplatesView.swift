@@ -59,4 +59,11 @@ struct TemplateRow: View {
             .foregroundStyle(.secondary)
         }
     }
+}
+
+private func recurrenceText(_ template: TransactionTemplate) -> String {
+    if let recurrence = template.recurrence {
+        return "Repeats \(recurrence.rawValue.lowercased())"
+    }
+    return "One-time"
 } 

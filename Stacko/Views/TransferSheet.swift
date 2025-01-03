@@ -68,9 +68,9 @@ struct TransferSheet: View {
               let toId = toAccountId else { return }
         
         budget.createTransfer(
+            from: fromId,
+            to: toId,
             amount: amountDouble,
-            fromAccountId: fromId,
-            toAccountId: toId,
             date: date,
             note: note.isEmpty ? nil : note
         )
