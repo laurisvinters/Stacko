@@ -5,25 +5,34 @@ import SwiftUI
 class DataController: ObservableObject {
     let container: NSPersistentContainer
     private var currentUserCache: CDUser?
+    private var fetchBatchSize = 20 // Default batch size
+    
+    // Add caching for frequently accessed data
+    private var accountsCache: [Account]?
+    private var accountsCacheTimestamp: Date?
+    private let cacheDuration: TimeInterval = 5 // 5 seconds cache
     
     init() {
         container = NSPersistentContainer(name: "StackoModel")
         
-        // Add these options for development
+        // Optimize Core Data configuration
         let description = container.persistentStoreDescriptions.first
         description?.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)
         description?.setOption(true as NSNumber, forKey: NSInferMappingModelAutomaticallyOption)
+        description?.type = NSSQLiteStoreType
         
-        container.loadPersistentStores { description, error in
+        // Add performance options
+        description?.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
+        description?.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
+        
+        container.loadPersistentStores { _, error in
             if let error = error {
                 print("Core Data failed to load: \(error.localizedDescription)")
-                // Handle the error appropriately
-                fatalError("Failed to load Core Data store: \(error)")
             }
         }
         
-        container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
         container.viewContext.automaticallyMergesChangesFromParent = true
+        container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
     }
     
     func save() {
@@ -41,33 +50,51 @@ class DataController: ObservableObject {
     // MARK: - Fetch Methods with Conversion
     
     func fetchAllAccounts() -> [Account] {
+        // Return cached data if valid
+        if let cached = accountsCache,
+           let timestamp = accountsCacheTimestamp,
+           Date().timeIntervalSince(timestamp) < cacheDuration {
+            return cached
+        }
+        
         guard let owner = getCurrentUser() else { return [] }
         
-        let request = CDAccount.fetchRequest()
+        let request: NSFetchRequest<CDAccount> = CDAccount.fetchRequest()
         request.predicate = NSPredicate(format: "owner == %@", owner)
         request.sortDescriptors = [NSSortDescriptor(keyPath: \CDAccount.name, ascending: true)]
-        request.fetchBatchSize = 20
+        request.fetchBatchSize = fetchBatchSize
         
-        guard let accounts = try? container.viewContext.fetch(request) else { return [] }
-        return accounts.compactMap { cdAccount in
-            guard let id = cdAccount.id,
-                  let name = cdAccount.name,
-                  let type = cdAccount.type,
-                  let category = cdAccount.category,
-                  let icon = cdAccount.icon else { return nil }
+        do {
+            let accounts = try container.viewContext.fetch(request)
+            let result = accounts.compactMap { (cdAccount: CDAccount) -> Account? in
+                guard let id = cdAccount.id,
+                      let name = cdAccount.name,
+                      let type = cdAccount.type,
+                      let category = cdAccount.category,
+                      let icon = cdAccount.icon else { return nil }
+                
+                return Account(
+                    id: id,
+                    name: name,
+                    type: Account.AccountType(rawValue: type) ?? .checking,
+                    category: Account.AccountCategory(rawValue: category) ?? .personal,
+                    balance: cdAccount.balance,
+                    clearedBalance: cdAccount.clearedBalance,
+                    icon: icon,
+                    isArchived: cdAccount.isArchived,
+                    notes: cdAccount.notes,
+                    lastReconciled: cdAccount.lastReconciled
+                )
+            }
             
-            return Account(
-                id: id,
-                name: name,
-                type: Account.AccountType(rawValue: type) ?? .checking,
-                category: Account.AccountCategory(rawValue: category) ?? .personal,
-                balance: cdAccount.balance,
-                clearedBalance: cdAccount.clearedBalance,
-                icon: icon,
-                isArchived: cdAccount.isArchived,
-                notes: cdAccount.notes,
-                lastReconciled: cdAccount.lastReconciled
-            )
+            // Update cache
+            accountsCache = result
+            accountsCacheTimestamp = Date()
+            
+            return result
+        } catch {
+            print("Error fetching accounts: \(error)")
+            return []
         }
     }
     
@@ -407,6 +434,8 @@ class DataController: ObservableObject {
     // Clear cache when user changes
     func clearCache() {
         currentUserCache = nil
+        accountsCache = nil
+        accountsCacheTimestamp = nil
     }
     
     func deleteAccount(_ id: UUID) {

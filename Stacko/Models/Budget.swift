@@ -5,6 +5,8 @@ import CoreData
 class Budget: ObservableObject {
     let dataController: DataController
     private var reloadTask: Task<Void, Never>?
+    private var lastReloadTime: Date?
+    private let minimumReloadInterval: TimeInterval = 0.5 // Minimum time between reloads
     
     @Published private(set) var accounts: [Account] = []
     @Published private(set) var categoryGroups: [CategoryGroup] = []
@@ -17,14 +19,21 @@ class Budget: ObservableObject {
     }
     
     func reload() {
+        // Check if enough time has passed since last reload
+        if let lastReload = lastReloadTime,
+           Date().timeIntervalSince(lastReload) < minimumReloadInterval {
+            return
+        }
+        
         // Cancel any pending reload
         reloadTask?.cancel()
         
         // Create new reload task with delay
         reloadTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second delay
+            try? await Task.sleep(nanoseconds: 100_000_000)
             if !Task.isCancelled {
                 loadData()
+                lastReloadTime = Date()
             }
         }
     }

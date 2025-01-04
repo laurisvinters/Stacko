@@ -7,9 +7,10 @@ struct TransactionsView: View {
     var body: some View {
         NavigationStack {
             List {
-                LazyVStack {
-                    ForEach(budget.transactions.sorted(by: { $0.date > $1.date })) { transaction in
+                LazyVStack(spacing: 8) {
+                    ForEach(sortedTransactions) { transaction in
                         TransactionRow(transaction: transaction, budget: budget)
+                            .equatable()
                     }
                 }
             }
@@ -24,19 +25,26 @@ struct TransactionsView: View {
                 }
             }
             .overlay(alignment: .bottomTrailing) {
-                Button(action: {
-                    showingAddTransaction = true
-                }) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 50))
-                        .padding()
-                        .symbolRenderingMode(.hierarchical)
-                }
-                .tint(.blue)
+                addButton
             }
-            .sheet(isPresented: $showingAddTransaction) {
-                QuickAddTransactionSheet(budget: budget)
-            }
+        }
+    }
+    
+    // Move computation to a computed property
+    private var sortedTransactions: [Transaction] {
+        budget.transactions.sorted { $0.date > $1.date }
+    }
+    
+    private var addButton: some View {
+        Button(action: { showingAddTransaction = true }) {
+            Image(systemName: "plus.circle.fill")
+                .font(.system(size: 50))
+                .padding()
+                .symbolRenderingMode(.hierarchical)
+        }
+        .tint(.blue)
+        .sheet(isPresented: $showingAddTransaction) {
+            QuickAddTransactionSheet(budget: budget)
         }
     }
 }

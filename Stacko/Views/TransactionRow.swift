@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct TransactionRow: View {
+struct TransactionRow: View, Equatable {
     let transaction: Transaction
     @ObservedObject var budget: Budget
     
@@ -11,43 +11,28 @@ struct TransactionRow: View {
     }
     
     var body: some View {
-        EquatableTransactionRow(
-            payee: transaction.payee,
-            categoryName: category?.name ?? "Uncategorized",
-            amount: transaction.amount,
-            isIncome: transaction.isIncome
-        )
-    }
-}
-
-// Create a separate equatable view
-private struct EquatableTransactionRow: View, Equatable {
-    let payee: String
-    let categoryName: String
-    let amount: Double
-    let isIncome: Bool
-    
-    var body: some View {
         HStack {
             VStack(alignment: .leading) {
-                Text(payee)
+                Text(transaction.payee)
                     .font(.headline)
-                Text(categoryName)
+                Text(category?.name ?? "Uncategorized")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             
             Spacer()
             
-            Text(amount, format: .currency(code: "USD"))
-                .foregroundStyle(isIncome ? .green : .primary)
+            Text(transaction.amount, format: .currency(code: "USD"))
+                .foregroundStyle(transaction.isIncome ? .green : .primary)
         }
     }
     
-    static func == (lhs: EquatableTransactionRow, rhs: EquatableTransactionRow) -> Bool {
-        lhs.payee == rhs.payee &&
-        lhs.categoryName == rhs.categoryName &&
-        lhs.amount == rhs.amount &&
-        lhs.isIncome == rhs.isIncome
+    // Add Equatable conformance
+    static func == (lhs: TransactionRow, rhs: TransactionRow) -> Bool {
+        lhs.transaction.id == rhs.transaction.id &&
+        lhs.transaction.amount == rhs.transaction.amount &&
+        lhs.transaction.payee == rhs.transaction.payee &&
+        lhs.transaction.categoryId == rhs.transaction.categoryId &&
+        lhs.transaction.isIncome == rhs.transaction.isIncome
     }
 } 
