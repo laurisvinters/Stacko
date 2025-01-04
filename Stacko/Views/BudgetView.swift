@@ -7,60 +7,58 @@ struct BudgetView: View {
     @State private var selectedCategory: Category?
     
     var body: some View {
-        NavigationView {
-            List {
+        List {
+            Section {
+                HStack {
+                    Text("Available to Budget")
+                    Spacer()
+                    Text(budget.availableToBudget, format: .currency(code: "USD"))
+                        .foregroundColor(budget.availableToBudget >= 0 ? .primary : .red)
+                }
+            }
+            
+            ForEach(budget.categoryGroups) { group in
                 Section {
+                    ForEach(group.categories) { category in
+                        CategoryRow(category: category)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                selectedCategory = category
+                            }
+                    }
+                } header: {
                     HStack {
-                        Text("Available to Budget")
+                        Text(group.name)
                         Spacer()
-                        Text(budget.availableToBudget, format: .currency(code: "USD"))
-                            .foregroundColor(budget.availableToBudget >= 0 ? .primary : .red)
-                    }
-                }
-                
-                ForEach(budget.categoryGroups) { group in
-                    Section {
-                        ForEach(group.categories) { category in
-                            CategoryRow(category: category)
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    selectedCategory = category
-                                }
-                        }
-                    } header: {
-                        HStack {
-                            Text(group.name)
-                            Spacer()
-                            Text(groupTotal(group), format: .currency(code: "USD"))
-                                .foregroundStyle(.secondary)
-                        }
+                        Text(groupTotal(group), format: .currency(code: "USD"))
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
-            .navigationTitle("Budget")
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Menu {
-                        Button("Add Category") {
-                            showingAddCategory = true
-                        }
-                        Button("Add Group") {
-                            showingAddGroup = true
-                        }
-                    } label: {
-                        Image(systemName: "plus")
+        }
+        .navigationTitle("Budget")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    Button("Add Category") {
+                        showingAddCategory = true
                     }
+                    Button("Add Group") {
+                        showingAddGroup = true
+                    }
+                } label: {
+                    Image(systemName: "plus")
                 }
             }
-            .sheet(item: $selectedCategory) { category in
-                CategoryDetailSheet(budget: budget, category: category)
-            }
-            .sheet(isPresented: $showingAddCategory) {
-                AddCategorySheet(budget: budget)
-            }
-            .sheet(isPresented: $showingAddGroup) {
-                AddGroupSheet(budget: budget)
-            }
+        }
+        .sheet(item: $selectedCategory) { category in
+            CategoryDetailSheet(budget: budget, category: category)
+        }
+        .sheet(isPresented: $showingAddCategory) {
+            AddCategorySheet(budget: budget)
+        }
+        .sheet(isPresented: $showingAddGroup) {
+            AddGroupSheet(budget: budget)
         }
     }
     

@@ -5,13 +5,11 @@ struct AddGroupSheet: View {
     @Environment(\.dismiss) private var dismiss
     
     @State private var name = ""
-    @State private var emoji = ""
     
     var body: some View {
         NavigationStack {
             Form {
                 TextField("Group Name", text: $name)
-                TextField("Emoji (Optional)", text: $emoji)
             }
             .navigationTitle("New Group")
             .navigationBarTitleDisplayMode(.inline)
@@ -31,7 +29,7 @@ struct AddGroupSheet: View {
     private func saveGroup() {
         budget.addCategoryGroup(
             name: name,
-            emoji: emoji.isEmpty ? nil : emoji
+            emoji: nil  // No emoji for groups
         )
         dismiss()
     }
