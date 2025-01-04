@@ -120,4 +120,9 @@ class Budget: ObservableObject {
         dataController.createTransfer(from: fromId, to: toId, amount: amount, date: date, note: note)
         loadData()
     }
+    
+    func deleteAccount(_ id: UUID) {
+        dataController.deleteAccount(id)
+        loadData()  // Reload data after deletion
+    }
 } 

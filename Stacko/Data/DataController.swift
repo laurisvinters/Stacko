@@ -408,4 +408,38 @@ class DataController: ObservableObject {
     func clearCache() {
         currentUserCache = nil
     }
+    
+    func deleteAccount(_ id: UUID) {
+        guard let owner = getCurrentUser() else { return }
+        
+        let request = CDAccount.fetchRequest()
+        request.predicate = NSPredicate(format: "id == %@ AND owner == %@", id as CVarArg, owner)
+        
+        if let account = try? container.viewContext.fetch(request).first {
+            // Delete associated transactions first
+            let transactionRequest = CDTransaction.fetchRequest()
+            transactionRequest.predicate = NSPredicate(format: "account == %@ OR toAccount == %@", account, account)
+            
+            if let transactions = try? container.viewContext.fetch(transactionRequest) {
+                for transaction in transactions {
+                    container.viewContext.delete(transaction)
+                }
+            }
+            
+            container.viewContext.delete(account)
+            save()
+        }
+    }
+    
+    func deleteUser(_ id: UUID) {
+        let request = CDUser.fetchRequest()
+        request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
+        
+        if let user = try? container.viewContext.fetch(request).first {
+            // Delete all user data
+            container.viewContext.delete(user)
+            save()
+            clearCache()
+        }
+    }
 } 

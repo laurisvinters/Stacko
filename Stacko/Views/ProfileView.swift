@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ProfileView: View {
     @ObservedObject var authManager: AuthenticationManager
+    @State private var showingDeleteConfirmation = false
     
     var body: some View {
         List {
@@ -33,8 +34,27 @@ struct ProfileView: View {
                         Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
                     }
                 }
+                
+                Section {
+                    Button(role: .destructive) {
+                        showingDeleteConfirmation = true
+                    } label: {
+                        Label("Delete Account", systemImage: "trash")
+                    }
+                } footer: {
+                    Text("Deleting your account will permanently remove all your data including accounts, transactions, and categories.")
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         .navigationTitle("Profile")
+        .alert("Delete Account", isPresented: $showingDeleteConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                authManager.deleteAccount()
+            }
+        } message: {
+            Text("Are you sure you want to delete your account? This action cannot be undone.")
+        }
     }
 } 

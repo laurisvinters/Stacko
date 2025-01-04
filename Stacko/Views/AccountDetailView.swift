@@ -4,6 +4,7 @@ import Charts
 struct AccountDetailView: View {
     @ObservedObject var budget: Budget
     let account: Account
+    @Environment(\.dismiss) private var dismiss
     @State private var showingReconcile = false
     @State private var showingExport = false
     @State private var timeRange: TimeRange = .month
@@ -11,6 +12,7 @@ struct AccountDetailView: View {
     @State private var customStartDate = Date()
     @State private var customEndDate = Date()
     @State private var showingAnalytics = true
+    @State private var showingDeleteConfirmation = false
     
     enum TimeRange: String, CaseIterable {
         case week = "Week"
@@ -66,6 +68,15 @@ struct AccountDetailView: View {
                     TransactionListRow(transaction: transaction)
                 }
             }
+            
+            // Add this section at the bottom
+            Section {
+                Button(role: .destructive) {
+                    showingDeleteConfirmation = true
+                } label: {
+                    Label("Delete Account", systemImage: "trash")
+                }
+            }
         }
         .navigationTitle(account.name)
         .toolbar {
@@ -76,6 +87,14 @@ struct AccountDetailView: View {
         }
         .sheet(isPresented: $showingExport) {
             ExportSheet(account: account, transactions: filteredTransactions)
+        }
+        .alert("Delete Account", isPresented: $showingDeleteConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                deleteAccount()
+            }
+        } message: {
+            Text("Are you sure you want to delete this account? This will also delete all associated transactions and cannot be undone.")
         }
     }
     
@@ -515,6 +534,11 @@ struct AccountDetailView: View {
             }
             .pickerStyle(.segmented)
         }
+    }
+    
+    private func deleteAccount() {
+        budget.deleteAccount(account.id)
+        dismiss()
     }
 }
 

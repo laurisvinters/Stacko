@@ -100,6 +100,12 @@ class AuthenticationManager: ObservableObject {
         budget.reload()
     }
     
+    func deleteAccount() {
+        guard let user = currentUser else { return }
+        dataController.deleteUser(user.id)
+        signOut()  // This will clear UserDefaults and currentUser
+    }
+    
     enum AuthError: LocalizedError {
         case emailAlreadyExists
         case invalidCredentials

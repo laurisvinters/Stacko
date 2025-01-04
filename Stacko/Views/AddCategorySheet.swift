@@ -6,12 +6,7 @@ struct AddCategorySheet: View {
     
     @State private var name = ""
     @State private var selectedEmoji = "🎯"
-    @State private var selectedGroupId: UUID? = nil
-    
-    init(budget: Budget) {
-        self.budget = budget
-        _selectedGroupId = State(initialValue: budget.categoryGroups.first?.id)
-    }
+    @State private var selectedGroupId: UUID?
     
     // Predefined emoji suggestions based on common budget categories
     private let suggestedEmojis = [
@@ -22,35 +17,30 @@ struct AddCategorySheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                FastTextField(text: $name, placeholder: "Category Name")
+                TextField("Category Name", text: $name)
                 
                 Section("Choose Icon") {
-                    ScrollView {  // Wrap LazyVGrid in ScrollView for better performance
-                        LazyVGrid(columns: [
-                            GridItem(.adaptive(minimum: 44))
-                        ], spacing: 10) {
-                            ForEach(suggestedEmojis, id: \.self) { emoji in
-                                Button(action: {
-                                    selectedEmoji = emoji
-                                    // Add haptic feedback
-                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                }) {
-                                    Text(emoji)
-                                        .font(.title2)
-                                        .padding(8)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 8)
-                                                .fill(selectedEmoji == emoji ? 
-                                                      Color.accentColor.opacity(0.2) : 
-                                                      Color.clear)
-                                        )
-                                }
-                                .buttonStyle(.plain)
+                    LazyVGrid(columns: [
+                        GridItem(.adaptive(minimum: 44))
+                    ], spacing: 10) {
+                        ForEach(suggestedEmojis, id: \.self) { emoji in
+                            Button(action: {
+                                selectedEmoji = emoji
+                            }) {
+                                Text(emoji)
+                                    .font(.title2)
+                                    .padding(8)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(selectedEmoji == emoji ? 
+                                                  Color.accentColor.opacity(0.2) : 
+                                                  Color.clear)
+                                    )
                             }
+                            .buttonStyle(.plain)
                         }
-                        .padding(.vertical, 8)
                     }
-                    .frame(maxHeight: 200)  // Limit scrollview height
+                    .padding(.vertical, 8)
                 }
                 
                 Picker("Group", selection: $selectedGroupId) {
@@ -73,8 +63,6 @@ struct AddCategorySheet: View {
                 }
             }
         }
-        // Disable animations during keyboard appearance to reduce lag
-        .animation(.none, value: selectedGroupId)
     }
     
     private var isValid: Bool {
