@@ -2,11 +2,18 @@ import SwiftUI
 
 struct AddCategorySheet: View {
     @ObservedObject var budget: Budget
+    let groupId: UUID?
     @Environment(\.dismiss) private var dismiss
     
     @State private var name = ""
     @State private var selectedEmoji = "🎯"
     @State private var selectedGroupId: UUID?
+    
+    init(budget: Budget, groupId: UUID? = nil) {
+        self.budget = budget
+        self.groupId = groupId
+        _selectedGroupId = State(initialValue: groupId)
+    }
     
     // Predefined emoji suggestions based on common budget categories
     private let suggestedEmojis = [

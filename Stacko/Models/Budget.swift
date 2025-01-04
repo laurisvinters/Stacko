@@ -57,9 +57,25 @@ class Budget: ObservableObject {
         loadData()
     }
     
-    func addCategoryGroup(name: String, emoji: String?) {
-        _ = dataController.addCategoryGroup(name: name, emoji: emoji)
+    @discardableResult
+    func addCategoryGroup(name: String, emoji: String?) -> CategoryGroup {
+        let group = CDCategoryGroup(context: dataController.container.viewContext)
+        group.id = UUID()
+        group.name = name
+        group.emoji = emoji
+        group.owner = dataController.getCurrentUser()
+        group.order = Int16(categoryGroups.count)
+        
+        dataController.save()
         loadData()
+        
+        // Return the created group
+        return CategoryGroup(
+            id: group.id!,
+            name: group.name!,
+            emoji: group.emoji,
+            categories: []
+        )
     }
     
     func addCategory(name: String, emoji: String?, groupId: UUID, target: Target? = nil) {

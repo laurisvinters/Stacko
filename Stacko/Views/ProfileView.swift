@@ -27,6 +27,20 @@ struct ProfileView: View {
                     .padding(.vertical, 8)
                 }
                 
+                if authManager.isGuestUser {
+                    Section {
+                        NavigationLink {
+                            ConvertGuestAccountView(authManager: authManager)
+                        } label: {
+                            Label("Convert to Full Account", systemImage: "person.badge.plus")
+                                .foregroundColor(.blue)
+                        }
+                    } footer: {
+                        Text("Convert to a full account to save your data permanently.")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                
                 Section {
                     Button(role: .destructive) {
                         authManager.signOut()
@@ -35,15 +49,17 @@ struct ProfileView: View {
                     }
                 }
                 
-                Section {
-                    Button(role: .destructive) {
-                        showingDeleteConfirmation = true
-                    } label: {
-                        Label("Delete Account", systemImage: "trash")
+                if !authManager.isGuestUser {
+                    Section {
+                        Button(role: .destructive) {
+                            showingDeleteConfirmation = true
+                        } label: {
+                            Label("Delete Account", systemImage: "trash")
+                        }
+                    } footer: {
+                        Text("Deleting your account will permanently remove all your data including accounts, transactions, and categories.")
+                            .foregroundStyle(.secondary)
                     }
-                } footer: {
-                    Text("Deleting your account will permanently remove all your data including accounts, transactions, and categories.")
-                        .foregroundStyle(.secondary)
                 }
             }
         }

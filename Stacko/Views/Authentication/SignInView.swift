@@ -30,6 +30,21 @@ struct SignInView: View {
                         showingSignUp = true
                     }
                 }
+                
+                Section {
+                    Button {
+                        authManager.continueAsGuest()
+                    } label: {
+                        HStack {
+                            Text("Continue as Guest")
+                            Spacer()
+                            Image(systemName: "person.fill.questionmark")
+                        }
+                    }
+                } footer: {
+                    Text("Guest mode allows you to try the app without creating an account. Your data will be lost when you sign out.")
+                        .foregroundStyle(.secondary)
+                }
             }
             .navigationTitle("Sign In")
             .alert("Error", isPresented: $showingError) {

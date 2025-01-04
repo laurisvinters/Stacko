@@ -416,7 +416,7 @@ class DataController: ObservableObject {
         addTransaction(transaction)
     }
     
-    private func getCurrentUser() -> CDUser? {
+    func getCurrentUser() -> CDUser? {
         // Return cached user if available
         if let cached = currentUserCache {
             return cached
@@ -469,6 +469,70 @@ class DataController: ObservableObject {
             container.viewContext.delete(user)
             save()
             clearCache()
+        }
+    }
+    
+    func transferGuestData(from oldUserId: UUID, to newUserId: UUID) {
+        let context = container.viewContext
+        
+        // Get old and new users
+        let userRequest = CDUser.fetchRequest()
+        userRequest.predicate = NSPredicate(format: "id IN %@", [oldUserId, newUserId])
+        
+        guard let users = try? context.fetch(userRequest),
+              let oldUser = users.first(where: { $0.id == oldUserId }),
+              let newUser = users.first(where: { $0.id == newUserId }) else {
+            return
+        }
+        
+        // Transfer accounts
+        if let accounts = oldUser.accounts?.allObjects as? [CDAccount] {
+            accounts.forEach { account in
+                account.owner = newUser
+            }
+        }
+        
+        // Transfer categories and groups with their relationships
+        if let groups = oldUser.categoryGroups?.allObjects as? [CDCategoryGroup] {
+            groups.forEach { group in
+                group.owner = newUser
+                
+                // Ensure categories within the group are also transferred
+                if let categories = group.categories?.allObjects as? [CDCategory] {
+                    categories.forEach { category in
+                        category.owner = newUser
+                        category.group = group  // Maintain the relationship
+                    }
+                }
+            }
+        }
+        
+        // Transfer transactions and maintain their category relationships
+        if let transactions = oldUser.transactions?.allObjects as? [CDTransaction] {
+            transactions.forEach { transaction in
+                transaction.owner = newUser
+                // No need to update category relationship as it remains the same
+            }
+        }
+        
+        // Transfer templates and maintain their category relationships
+        if let templates = oldUser.templates?.allObjects as? [CDTemplate] {
+            templates.forEach { template in
+                template.owner = newUser
+                // No need to update category relationship as it remains the same
+            }
+        }
+        
+        // Delete the guest user
+        context.delete(oldUser)
+        
+        // Save changes
+        do {
+            try context.save()
+            clearCache() // Clear cache to ensure fresh data is loaded
+        } catch {
+            print("Error transferring guest data: \(error)")
+            context.rollback()
         }
     }
 } 
