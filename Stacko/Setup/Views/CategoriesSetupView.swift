@@ -11,13 +11,11 @@ struct SuggestedCategory: Identifiable {
 struct SuggestedGroup: Identifiable {
     let id: UUID
     let name: String
-    let emoji: String
     let categories: [SuggestedCategory]
     
-    init(id: UUID = UUID(), name: String, emoji: String, categories: [SuggestedCategory]) {
+    init(id: UUID = UUID(), name: String, categories: [SuggestedCategory]) {
         self.id = id
         self.name = name
-        self.emoji = emoji
         self.categories = categories
     }
 }
@@ -32,10 +30,10 @@ struct CategoryGroupRow: View {
     let isSelected: Bool
     @Binding var selectedCategories: Set<UUID>
     let onGroupSelect: () -> Void
+    let onAddCategory: () -> Void
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Group header with selection button
             HStack(spacing: 12) {
                 Button(action: onGroupSelect) {
                     HStack(spacing: 8) {
@@ -43,13 +41,20 @@ struct CategoryGroupRow: View {
                             .foregroundStyle(isSelected ? .blue : .secondary)
                             .imageScale(.large)
                         
-                        Text(group.emoji)
-                        
                         Text(group.name)
                             .font(.headline)
                     }
                 }
                 .buttonStyle(.plain)
+                
+                Spacer()
+                
+                if isSelected {
+                    Button(action: onAddCategory) {
+                        Image(systemName: "plus.circle")
+                            .foregroundStyle(.blue)
+                    }
+                }
             }
             .frame(height: 36)
             
@@ -107,64 +112,65 @@ struct CategoriesSetupView: View {
     @State private var selectedCategories: Set<UUID> = []
     @State private var showingAddGroup = false
     @State private var showingReview = false
+    @State private var customGroups: [SuggestedGroup] = []
     
-    // Create static constants for suggested groups
-    private let housingGroup = SuggestedGroup(
-        name: "Housing",
-        emoji: "🏠",
-        categories: [
-            SuggestedCategory(name: "Rent/Mortgage", emoji: "🏘️", target: nil),
-            SuggestedCategory(name: "Utilities", emoji: "💡", target: nil),
-            SuggestedCategory(name: "Maintenance", emoji: "🔧", target: nil)
-        ]
-    )
-    
-    private let transportationGroup = SuggestedGroup(
-        name: "Transportation",
-        emoji: "🚗",
-        categories: [
-            SuggestedCategory(name: "Fuel", emoji: "⛽", target: nil),
-            SuggestedCategory(name: "Public Transit", emoji: "🚌", target: nil),
-            SuggestedCategory(name: "Car Maintenance", emoji: "🔧", target: nil)
-        ]
-    )
-    
-    // Add state for custom groups
-    @State private var customGroups: [CategoryGroup] = []
+    // Add static suggested groups
+    private static let suggestedGroups = [
+        SuggestedGroup(
+            name: "Housing",
+            categories: [
+                SuggestedCategory(name: "Rent/Mortgage", emoji: "🏘️", target: nil),
+                SuggestedCategory(name: "Utilities", emoji: "💡", target: nil),
+                SuggestedCategory(name: "Maintenance", emoji: "🔧", target: nil)
+            ]
+        ),
+        SuggestedGroup(
+            name: "Transportation",
+            categories: [
+                SuggestedCategory(name: "Fuel", emoji: "⛽", target: nil),
+                SuggestedCategory(name: "Public Transit", emoji: "🚌", target: nil),
+                SuggestedCategory(name: "Car Maintenance", emoji: "🔧", target: nil)
+            ]
+        )
+    ]
     
     private var allGroups: [SuggestedGroup] {
-        // Combine suggested and custom groups
-        suggestedGroups + customGroups.map { group in
-            SuggestedGroup(
-                id: group.id,
-                name: group.name,
-                emoji: group.emoji ?? "📁",
-                categories: group.categories.map { category in
-                    SuggestedCategory(
-                        name: category.name,
-                        emoji: category.emoji ?? "🏷️",
-                        target: nil
-                    )
-                }
-            )
-        }
+        // Make sure custom groups appear after suggested groups
+        Self.suggestedGroups + customGroups
     }
-    
-    private let suggestedGroups: [SuggestedGroup]
     
     init(budget: Budget, coordinator: SetupCoordinator) {
         self.budget = budget
         self.coordinator = coordinator
-        self.suggestedGroups = [housingGroup, transportationGroup]
-        // Load existing custom groups
-        self._customGroups = State(initialValue: budget.categoryGroups)
+    }
+    
+    // Change UUID to IdentifiableUUID for sheet presentation
+    @State private var selectedGroupForCategory: IdentifiableUUID?
+    
+    private func showAddCategory(for groupId: UUID) {
+        selectedGroupForCategory = IdentifiableUUID(id: groupId)
     }
     
     var body: some View {
         NavigationStack {
             List {
                 introSection
-                suggestedCategoriesSection
+                
+                // Combined section for all groups
+                Section("Categories") {
+                    ForEach(allGroups) { group in
+                        CategoryGroupRow(
+                            group: group,
+                            isSelected: selectedGroups.contains(group.id),
+                            selectedCategories: $selectedCategories,
+                            onGroupSelect: { toggleGroup(group.id) },
+                            onAddCategory: {
+                                showAddCategory(for: group.id)
+                            }
+                        )
+                    }
+                }
+                
                 customGroupSection
             }
             .navigationTitle("Setup Categories")
@@ -177,10 +183,21 @@ struct CategoriesSetupView: View {
                 }
             }
             .sheet(isPresented: $showingAddGroup) {
-                AddGroupSheet(budget: budget, onAdd: { newGroup in
-                    customGroups.append(newGroup)
+                AddGroupSheet(budget: budget) { newGroup in
+                    let suggestedGroup = SuggestedGroup(
+                        id: newGroup.id,
+                        name: newGroup.name,
+                        categories: []
+                    )
+                    customGroups.append(suggestedGroup)
                     selectedGroups.insert(newGroup.id)
-                })
+                    budget.deleteGroup(newGroup.id)
+                }
+            }
+            .sheet(item: $selectedGroupForCategory) { wrapper in
+                SetupAddCategorySheet(budget: budget) { name, emoji in
+                    addCategory(name: name, emoji: emoji, to: wrapper.id)
+                }
             }
             .sheet(isPresented: $showingReview) {
                 ReviewCategoriesView(
@@ -194,23 +211,37 @@ struct CategoriesSetupView: View {
         }
     }
     
+    private func addCategory(name: String, emoji: String, to groupId: UUID) {
+        if let groupIndex = customGroups.firstIndex(where: { $0.id == groupId }) {
+            let newCategory = SuggestedCategory(
+                name: name,
+                emoji: emoji,
+                target: nil
+            )
+            // Create a new group with updated categories
+            let updatedGroup = customGroups[groupIndex]
+            var updatedCategories = updatedGroup.categories
+            updatedCategories.append(newCategory)
+            
+            // Create new group with updated categories
+            let newGroup = SuggestedGroup(
+                id: updatedGroup.id,
+                name: updatedGroup.name,
+                categories: updatedCategories
+            )
+            
+            // Replace old group with updated one
+            customGroups[groupIndex] = newGroup
+            
+            // Auto-select the new category
+            selectedCategories.insert(newCategory.id)
+        }
+    }
+    
     private var introSection: some View {
         Section {
             Text("Choose categories to track your spending or create your own.")
                 .foregroundStyle(.secondary)
-        }
-    }
-    
-    private var suggestedCategoriesSection: some View {
-        Section("Suggested Categories") {
-            ForEach(suggestedGroups) { group in
-                CategoryGroupRow(
-                    group: group,
-                    isSelected: selectedGroups.contains(group.id),
-                    selectedCategories: $selectedCategories,
-                    onGroupSelect: { toggleGroup(group.id) }
-                )
-            }
         }
     }
     
@@ -229,6 +260,64 @@ struct CategoriesSetupView: View {
             selectedGroups.remove(id)
         } else {
             selectedGroups.insert(id)
+        }
+    }
+}
+
+// Rename to SetupAddCategorySheet to avoid conflict
+struct SetupAddCategorySheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject var budget: Budget
+    let onAdd: (String, String) -> Void
+    
+    @State private var name = ""
+    @State private var selectedEmoji = "🎯"
+    
+    private let suggestedEmojis = [
+        "🎯", "💰", "🏠", "🚗", "🍽️", "🛒", "💊", "🎮",
+        "👕", "✈️", "📱", "🎓", "🎁", "🏋️", "🎬", "📚"
+    ]
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("Category Name", text: $name)
+                
+                Section("Choose Icon") {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 44))], spacing: 10) {
+                        ForEach(suggestedEmojis, id: \.self) { emoji in
+                            Button(action: { selectedEmoji = emoji }) {
+                                Text(emoji)
+                                    .font(.title2)
+                                    .padding(8)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(selectedEmoji == emoji ? 
+                                                  Color.accentColor.opacity(0.2) : 
+                                                  Color.clear)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+            }
+            .navigationTitle("New Category")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") {
+                        onAdd(name, selectedEmoji)
+                        dismiss()
+                    }
+                    .disabled(name.isEmpty)
+                }
+            }
         }
     }
 }

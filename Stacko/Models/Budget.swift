@@ -150,4 +150,9 @@ class Budget: ObservableObject {
         dataController.deleteAccount(id)
         loadData()  // Reload data after deletion
     }
+    
+    func deleteGroup(_ id: UUID) {
+        dataController.deleteGroup(id)
+        loadData()
+    }
 } 

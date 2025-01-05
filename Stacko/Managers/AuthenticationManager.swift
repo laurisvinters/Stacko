@@ -5,10 +5,12 @@ class AuthenticationManager: ObservableObject {
     @Published private(set) var currentUser: User?
     private let dataController: DataController
     private let budget: Budget
+    private let setupCoordinator: SetupCoordinator
     
-    init(dataController: DataController, budget: Budget) {
+    init(dataController: DataController, budget: Budget, setupCoordinator: SetupCoordinator) {
         self.dataController = dataController
         self.budget = budget
+        self.setupCoordinator = setupCoordinator
         loadSavedUser()
     }
     
@@ -98,6 +100,7 @@ class AuthenticationManager: ObservableObject {
         currentUser = nil
         dataController.clearCache()
         budget.reload()
+        setupCoordinator.reset()  // Reset setup status
     }
     
     func deleteAccount() {

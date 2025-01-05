@@ -535,4 +535,16 @@ class DataController: ObservableObject {
             context.rollback()
         }
     }
+    
+    func deleteGroup(_ id: UUID) {
+        guard let owner = getCurrentUser() else { return }
+        
+        let request = CDCategoryGroup.fetchRequest()
+        request.predicate = NSPredicate(format: "id == %@ AND owner == %@", id as CVarArg, owner)
+        
+        if let group = try? container.viewContext.fetch(request).first {
+            container.viewContext.delete(group)
+            save()
+        }
+    }
 } 

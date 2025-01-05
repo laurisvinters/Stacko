@@ -3,11 +3,11 @@ import SwiftUI
 struct MainView: View {
     @ObservedObject var authManager: AuthenticationManager
     @ObservedObject var budget: Budget
-    @StateObject private var setupCoordinator = SetupCoordinator()
+    @ObservedObject var setupCoordinator: SetupCoordinator
     
     var body: some View {
         Group {
-            if setupCoordinator.isSetupComplete {
+            if setupCoordinator.isSetupComplete || !budget.categoryGroups.isEmpty {
                 // Regular app content
                 TabView {
                     NavigationStack {

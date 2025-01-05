@@ -10,11 +10,16 @@ import SwiftUI
 struct ContentView: View {
     @ObservedObject var authManager: AuthenticationManager
     @ObservedObject var budget: Budget
+    @ObservedObject var setupCoordinator: SetupCoordinator
     
     var body: some View {
         Group {
             if authManager.currentUser != nil {
-                MainView(authManager: authManager, budget: budget)
+                MainView(
+                    authManager: authManager,
+                    budget: budget,
+                    setupCoordinator: setupCoordinator
+                )
             } else {
                 SignInView(authManager: authManager)
             }
@@ -26,7 +31,17 @@ struct ContentView: View {
 #Preview {
     let dataController = DataController()
     let budget = Budget(dataController: dataController)
-    let authManager = AuthenticationManager(dataController: dataController, budget: budget)
+    let coordinator = SetupCoordinator()
+    let authManager = AuthenticationManager(
+        dataController: dataController,
+        budget: budget,
+        setupCoordinator: coordinator
+    )
     
-    return ContentView(authManager: authManager, budget: budget)
+    ContentView(
+        authManager: authManager,
+        budget: budget,
+        setupCoordinator: coordinator
+    )
 }
+  

@@ -38,7 +38,6 @@ struct ReviewCategoriesView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Continue") {
                         saveSelectedCategories()
-                        coordinator.isSetupComplete = true
                     }
                 }
             }
@@ -46,21 +45,22 @@ struct ReviewCategoriesView: View {
     }
     
     private func saveSelectedCategories() {
-        for groupId in selectedGroups {
-            if let group = suggestedGroups.first(where: { $0.id == groupId }) {
-                // Add group
-                budget.addCategoryGroup(name: group.name, emoji: group.emoji)
-                
-                // Add selected categories for this group
-                for category in group.categories where selectedCategories.contains(category.id) {
-                    budget.addCategory(
-                        name: category.name,
-                        emoji: category.emoji,
-                        groupId: groupId,
-                        target: category.target
-                    )
-                }
+        for group in suggestedGroups where selectedGroups.contains(group.id) {
+            // Add group without emoji
+            let createdGroupId = budget.addCategoryGroup(name: group.name, emoji: nil).id
+            
+            // Add selected categories for this group
+            for category in group.categories where selectedCategories.contains(category.id) {
+                budget.addCategory(
+                    name: category.name,
+                    emoji: category.emoji,
+                    groupId: createdGroupId,
+                    target: category.target
+                )
             }
         }
+        
+        coordinator.isSetupComplete = true
+        dismiss()
     }
 } 
