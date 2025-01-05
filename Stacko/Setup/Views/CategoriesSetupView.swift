@@ -20,68 +20,8 @@ struct SuggestedGroup: Identifiable {
     }
 }
 
-// Wrapper for UUID to make it Identifiable
-struct IdentifiableUUID: Identifiable {
-    let id: UUID
-}
-
-struct CategoryGroupRow: View {
-    let group: SuggestedGroup
-    let isSelected: Bool
-    @Binding var selectedCategories: Set<UUID>
-    let onGroupSelect: () -> Void
-    let onAddCategory: () -> Void
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 12) {
-                Button(action: onGroupSelect) {
-                    HStack(spacing: 8) {
-                        Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(isSelected ? .blue : .secondary)
-                            .imageScale(.large)
-                        
-                        Text(group.name)
-                            .font(.headline)
-                    }
-                }
-                .buttonStyle(.plain)
-                
-                Spacer()
-                
-                if isSelected {
-                    Button(action: onAddCategory) {
-                        Image(systemName: "plus.circle")
-                            .foregroundStyle(.blue)
-                    }
-                }
-            }
-            .frame(height: 36)
-            
-            if isSelected {
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(group.categories) { category in
-                        SetupCategoryRow(
-                            category: category,
-                            isSelected: selectedCategories.contains(category.id)
-                        ) {
-                            if selectedCategories.contains(category.id) {
-                                selectedCategories.remove(category.id)
-                            } else {
-                                selectedCategories.insert(category.id)
-                            }
-                        }
-                    }
-                }
-                .padding(.leading, 32)
-            }
-        }
-        .padding(.vertical, 2)
-    }
-}
-
 struct SetupCategoryRow: View {
-    let category: SuggestedCategory
+    let category: SetupCategory
     let isSelected: Bool
     let onTap: () -> Void
     
@@ -108,158 +48,74 @@ struct SetupCategoryRow: View {
 struct CategoriesSetupView: View {
     @ObservedObject var budget: Budget
     @ObservedObject var coordinator: SetupCoordinator
-    @State private var selectedGroups: Set<UUID> = []
     @State private var selectedCategories: Set<UUID> = []
-    @State private var showingAddGroup = false
-    @State private var showingReview = false
-    @State private var customGroups: [SuggestedGroup] = []
-    
-    // Add static suggested groups
-    private static let suggestedGroups = [
-        SuggestedGroup(
-            name: "Housing",
-            categories: [
-                SuggestedCategory(name: "Rent/Mortgage", emoji: "🏘️", target: nil),
-                SuggestedCategory(name: "Utilities", emoji: "💡", target: nil),
-                SuggestedCategory(name: "Maintenance", emoji: "🔧", target: nil)
-            ]
-        ),
-        SuggestedGroup(
-            name: "Transportation",
-            categories: [
-                SuggestedCategory(name: "Fuel", emoji: "⛽", target: nil),
-                SuggestedCategory(name: "Public Transit", emoji: "🚌", target: nil),
-                SuggestedCategory(name: "Car Maintenance", emoji: "🔧", target: nil)
-            ]
-        )
-    ]
-    
-    private var allGroups: [SuggestedGroup] {
-        // Make sure custom groups appear after suggested groups
-        Self.suggestedGroups + customGroups
-    }
-    
-    init(budget: Budget, coordinator: SetupCoordinator) {
-        self.budget = budget
-        self.coordinator = coordinator
-    }
-    
-    // Change UUID to IdentifiableUUID for sheet presentation
+    @State private var showingAddCategory = false
     @State private var selectedGroupForCategory: IdentifiableUUID?
     
-    private func showAddCategory(for groupId: UUID) {
-        selectedGroupForCategory = IdentifiableUUID(id: groupId)
-    }
-    
     var body: some View {
-        NavigationStack {
-            List {
-                introSection
-                
-                // Combined section for all groups
-                Section("Categories") {
-                    ForEach(allGroups) { group in
-                        CategoryGroupRow(
-                            group: group,
-                            isSelected: selectedGroups.contains(group.id),
-                            selectedCategories: $selectedCategories,
-                            onGroupSelect: { toggleGroup(group.id) },
-                            onAddCategory: {
-                                showAddCategory(for: group.id)
-                            }
-                        )
-                    }
+        List {
+            if let currentGroup = coordinator.currentGroup {
+                Section {
+                    Text("Add categories to \(currentGroup.name)")
+                        .foregroundStyle(.secondary)
                 }
                 
-                customGroupSection
-            }
-            .navigationTitle("Setup Categories")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Review") {
-                        showingReview = true
+                Section {
+                    ForEach(currentGroup.categories) { category in
+                        SetupCategoryRow(
+                            category: category,
+                            isSelected: selectedCategories.contains(category.id)
+                        ) {
+                            toggleCategory(category.id)
+                        }
                     }
-                    .disabled(selectedCategories.isEmpty)
+                    
+                    Button {
+                        showingAddCategory = true
+                    } label: {
+                        Label("Add Category", systemImage: "plus.circle")
+                            .frame(height: 44)
+                    }
                 }
             }
-            .sheet(isPresented: $showingAddGroup) {
-                AddGroupSheet(budget: budget) { newGroup in
-                    let suggestedGroup = SuggestedGroup(
-                        id: newGroup.id,
-                        name: newGroup.name,
-                        categories: []
-                    )
-                    customGroups.append(suggestedGroup)
-                    selectedGroups.insert(newGroup.id)
-                    budget.deleteGroup(newGroup.id)
+        }
+        .navigationTitle("Setup Categories")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button("Next") {
+                    coordinator.moveToNextGroup()
                 }
             }
-            .sheet(item: $selectedGroupForCategory) { wrapper in
-                SetupAddCategorySheet(budget: budget) { name, emoji in
-                    addCategory(name: name, emoji: emoji, to: wrapper.id)
-                }
-            }
-            .sheet(isPresented: $showingReview) {
-                ReviewCategoriesView(
-                    budget: budget,
-                    coordinator: coordinator,
-                    selectedGroups: selectedGroups,
-                    selectedCategories: selectedCategories,
-                    suggestedGroups: allGroups
-                )
+        }
+        .sheet(isPresented: $showingAddCategory) {
+            SetupAddCategorySheet(budget: budget) { name, emoji in
+                addCategory(name: name, emoji: emoji)
             }
         }
     }
     
-    private func addCategory(name: String, emoji: String, to groupId: UUID) {
-        if let groupIndex = customGroups.firstIndex(where: { $0.id == groupId }) {
-            let newCategory = SuggestedCategory(
-                name: name,
-                emoji: emoji,
-                target: nil
-            )
-            // Create a new group with updated categories
-            let updatedGroup = customGroups[groupIndex]
-            var updatedCategories = updatedGroup.categories
-            updatedCategories.append(newCategory)
-            
-            // Create new group with updated categories
-            let newGroup = SuggestedGroup(
-                id: updatedGroup.id,
-                name: updatedGroup.name,
-                categories: updatedCategories
-            )
-            
-            // Replace old group with updated one
-            customGroups[groupIndex] = newGroup
-            
-            // Auto-select the new category
-            selectedCategories.insert(newCategory.id)
-        }
-    }
-    
-    private var introSection: some View {
-        Section {
-            Text("Choose categories to track your spending or create your own.")
-                .foregroundStyle(.secondary)
-        }
-    }
-    
-    private var customGroupSection: some View {
-        Section {
-            Button {
-                showingAddGroup = true
-            } label: {
-                Label("Add Custom Group", systemImage: "folder.badge.plus")
-            }
-        }
-    }
-    
-    private func toggleGroup(_ id: UUID) {
-        if selectedGroups.contains(id) {
-            selectedGroups.remove(id)
+    private func toggleCategory(_ id: UUID) {
+        if selectedCategories.contains(id) {
+            selectedCategories.remove(id)
         } else {
-            selectedGroups.insert(id)
+            selectedCategories.insert(id)
+        }
+    }
+    
+    private func addCategory(name: String, emoji: String) {
+        guard var currentGroup = coordinator.currentGroup else { return }
+        
+        let newCategory = SetupCategory(
+            name: name,
+            emoji: emoji
+        )
+        
+        currentGroup.categories.append(newCategory)
+        selectedCategories.insert(newCategory.id)
+        
+        // Update the group in coordinator
+        if let index = coordinator.setupGroups.firstIndex(where: { $0.id == currentGroup.id }) {
+            coordinator.setupGroups[index] = currentGroup
         }
     }
 }
