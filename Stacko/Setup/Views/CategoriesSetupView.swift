@@ -24,23 +24,32 @@ struct SetupCategoryRow: View {
     let category: SetupCategory
     let isSelected: Bool
     let onTap: () -> Void
+    let onReview: () -> Void
     
     var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 8) {
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isSelected ? .blue : .secondary)
-                    .imageScale(.small)
-                
-                Text(category.emoji)
-                
-                Text(category.name)
-                    .foregroundStyle(.primary)
-                
-                Spacer()
+        HStack {
+            Button(action: onTap) {
+                HStack(spacing: 8) {
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(isSelected ? .blue : .secondary)
+                        .imageScale(.small)
+                    
+                    Text(category.emoji)
+                    
+                    Text(category.name)
+                        .foregroundStyle(.primary)
+                    
+                    Spacer()
+                }
             }
+            .buttonStyle(.plain)
+            
+            Button(action: onReview) {
+                Image(systemName: "pencil.circle")
+                    .foregroundStyle(.blue)
+            }
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
         .frame(height: 32)
     }
 }
@@ -50,7 +59,7 @@ struct CategoriesSetupView: View {
     @ObservedObject var coordinator: SetupCoordinator
     @State private var selectedCategories: Set<UUID> = []
     @State private var showingAddCategory = false
-    @State private var selectedGroupForCategory: IdentifiableUUID?
+    @State private var selectedCategoryForEdit: SetupCategory?
     
     var body: some View {
         List {
@@ -64,10 +73,10 @@ struct CategoriesSetupView: View {
                     ForEach(currentGroup.categories) { category in
                         SetupCategoryRow(
                             category: category,
-                            isSelected: selectedCategories.contains(category.id)
-                        ) {
-                            toggleCategory(category.id)
-                        }
+                            isSelected: selectedCategories.contains(category.id),
+                            onTap: { toggleCategory(category.id) },
+                            onReview: { selectedCategoryForEdit = category }
+                        )
                     }
                     
                     Button {
@@ -90,6 +99,11 @@ struct CategoriesSetupView: View {
         .sheet(isPresented: $showingAddCategory) {
             SetupAddCategorySheet(budget: budget) { name, emoji in
                 addCategory(name: name, emoji: emoji)
+            }
+        }
+        .sheet(item: $selectedCategoryForEdit) { category in
+            EditCategorySheet(category: category) { newName, newEmoji in
+                updateCategory(id: category.id, name: newName, emoji: newEmoji)
             }
         }
     }
@@ -116,6 +130,25 @@ struct CategoriesSetupView: View {
         // Update the group in coordinator
         if let index = coordinator.setupGroups.firstIndex(where: { $0.id == currentGroup.id }) {
             coordinator.setupGroups[index] = currentGroup
+        }
+    }
+    
+    private func updateCategory(id: UUID, name: String, emoji: String) {
+        guard var currentGroup = coordinator.currentGroup else { return }
+        
+        if let index = currentGroup.categories.firstIndex(where: { $0.id == id }) {
+            let updatedCategory = SetupCategory(
+                id: id,
+                name: name,
+                emoji: emoji,
+                target: currentGroup.categories[index].target
+            )
+            currentGroup.categories[index] = updatedCategory
+            
+            // Update the group in coordinator
+            if let groupIndex = coordinator.setupGroups.firstIndex(where: { $0.id == currentGroup.id }) {
+                coordinator.setupGroups[groupIndex] = currentGroup
+            }
         }
     }
 }
@@ -169,6 +202,71 @@ struct SetupAddCategorySheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") {
                         onAdd(name, selectedEmoji)
+                        dismiss()
+                    }
+                    .disabled(name.isEmpty)
+                }
+            }
+        }
+    }
+}
+
+// Add new EditCategorySheet view
+struct EditCategorySheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let category: SetupCategory
+    let onSave: (String, String) -> Void
+    
+    @State private var name: String
+    @State private var selectedEmoji: String
+    
+    init(category: SetupCategory, onSave: @escaping (String, String) -> Void) {
+        self.category = category
+        self.onSave = onSave
+        _name = State(initialValue: category.name)
+        _selectedEmoji = State(initialValue: category.emoji)
+    }
+    
+    private let suggestedEmojis = [
+        "🎯", "💰", "🏠", "🚗", "🍽️", "🛒", "💊", "🎮",
+        "👕", "✈️", "📱", "🎓", "🎁", "🏋️", "🎬", "📚"
+    ]
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("Category Name", text: $name)
+                
+                Section("Choose Icon") {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 44))], spacing: 10) {
+                        ForEach(suggestedEmojis, id: \.self) { emoji in
+                            Button(action: { selectedEmoji = emoji }) {
+                                Text(emoji)
+                                    .font(.title2)
+                                    .padding(8)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(selectedEmoji == emoji ? 
+                                                  Color.accentColor.opacity(0.2) : 
+                                                  Color.clear)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+            }
+            .navigationTitle("Edit Category")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        onSave(name, selectedEmoji)
                         dismiss()
                     }
                     .disabled(name.isEmpty)

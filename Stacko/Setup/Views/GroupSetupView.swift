@@ -6,14 +6,44 @@ struct GroupSetupView: View {
     @State private var selectedGroups: Set<UUID> = []
     @State private var showingAddGroup = false
     
-    // Simplified suggested groups without categories
+    // Simplified suggested groups with categories
     private static let suggestedGroups = [
-        SetupGroup(name: "Housing"),
-        SetupGroup(name: "Transportation"),
-        SetupGroup(name: "Food & Dining"),
-        SetupGroup(name: "Bills & Utilities"),
-        SetupGroup(name: "Shopping"),
-        SetupGroup(name: "Entertainment")
+        SetupGroup(name: "Housing", categories: [
+            SetupCategory(name: "Rent/Mortgage", emoji: "🏠"),
+            SetupCategory(name: "Utilities", emoji: "💡"),
+            SetupCategory(name: "Maintenance", emoji: "🔧"),
+            SetupCategory(name: "Insurance", emoji: "🔒")
+        ]),
+        SetupGroup(name: "Transportation", categories: [
+            SetupCategory(name: "Car Payment", emoji: "🚗"),
+            SetupCategory(name: "Gas", emoji: "⛽️"),
+            SetupCategory(name: "Public Transit", emoji: "🚌"),
+            SetupCategory(name: "Maintenance", emoji: "🔧")
+        ]),
+        SetupGroup(name: "Food & Dining", categories: [
+            SetupCategory(name: "Groceries", emoji: "🛒"),
+            SetupCategory(name: "Restaurants", emoji: "🍽️"),
+            SetupCategory(name: "Coffee Shops", emoji: "☕️"),
+            SetupCategory(name: "Takeout", emoji: "🥡")
+        ]),
+        SetupGroup(name: "Bills & Utilities", categories: [
+            SetupCategory(name: "Phone", emoji: "📱"),
+            SetupCategory(name: "Internet", emoji: "🌐"),
+            SetupCategory(name: "Streaming", emoji: "📺"),
+            SetupCategory(name: "Subscriptions", emoji: "📦")
+        ]),
+        SetupGroup(name: "Shopping", categories: [
+            SetupCategory(name: "Clothing", emoji: "👕"),
+            SetupCategory(name: "Electronics", emoji: "🖥️"),
+            SetupCategory(name: "Home Goods", emoji: "🏠"),
+            SetupCategory(name: "Personal Care", emoji: "🧴")
+        ]),
+        SetupGroup(name: "Entertainment", categories: [
+            SetupCategory(name: "Movies", emoji: "🎬"),
+            SetupCategory(name: "Games", emoji: "🎮"),
+            SetupCategory(name: "Sports", emoji: "⚽️"),
+            SetupCategory(name: "Hobbies", emoji: "🎨")
+        ])
     ]
     
     private var allGroups: [SetupGroup] {
