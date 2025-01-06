@@ -42,6 +42,7 @@ class SetupCoordinator: ObservableObject {
         selectedGroups = []
         setupGroups = []
         currentGroupIndex = 0
+        selectedCategories.removeAll()
         isSetupComplete = false
     }
     
@@ -49,5 +50,9 @@ class SetupCoordinator: ObservableObject {
         if let userId = UserDefaults.standard.string(forKey: "currentUserId") {
             self.isSetupComplete = UserDefaults.standard.bool(forKey: "hasCompletedSetup-\(userId)")
         }
+    }
+    
+    var isLastGroup: Bool {
+        currentGroupIndex == setupGroups.count - 1
     }
 } 

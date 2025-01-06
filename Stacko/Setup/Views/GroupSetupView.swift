@@ -5,6 +5,7 @@ struct GroupSetupView: View {
     @ObservedObject var coordinator: SetupCoordinator
     @State private var selectedGroups: Set<UUID> = []
     @State private var showingAddGroup = false
+    @State private var customGroups: [SetupGroup] = []
     
     // Simplified suggested groups with categories
     private static let suggestedGroups = [
@@ -50,8 +51,6 @@ struct GroupSetupView: View {
         Self.suggestedGroups + customGroups
     }
     
-    @State private var customGroups: [SetupGroup] = []
-    
     var body: some View {
         List {
             Section {
@@ -93,6 +92,10 @@ struct GroupSetupView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button("Next") {
+                    // Clear any existing data before setting up new groups
+                    coordinator.setupGroups.removeAll()
+                    coordinator.selectedCategories.removeAll()
+                    
                     // Save selected groups to coordinator
                     coordinator.setupGroups = allGroups.filter { selectedGroups.contains($0.id) }
                     coordinator.currentStep = .categories

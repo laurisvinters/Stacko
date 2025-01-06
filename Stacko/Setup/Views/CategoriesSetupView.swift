@@ -90,8 +90,12 @@ struct CategoriesSetupView: View {
         .navigationTitle("Setup Categories")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button("Next") {
-                    coordinator.currentStep = .targets
+                Button(coordinator.isLastGroup ? "Next" : "Next Group") {
+                    if coordinator.isLastGroup {
+                        coordinator.currentStep = .targets
+                    } else {
+                        coordinator.moveToNextGroup()
+                    }
                 }
             }
         }
