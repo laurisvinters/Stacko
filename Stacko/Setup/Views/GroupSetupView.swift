@@ -7,43 +7,95 @@ struct GroupSetupView: View {
     @State private var showingAddGroup = false
     @State private var customGroups: [SetupGroup] = []
     
-    // Simplified suggested groups with categories
+    // Expanded suggested groups with categories
     private static let suggestedGroups = [
         SetupGroup(name: "Housing", categories: [
             SetupCategory(name: "Rent/Mortgage", emoji: "🏠"),
-            SetupCategory(name: "Utilities", emoji: "💡"),
-            SetupCategory(name: "Maintenance", emoji: "🔧"),
-            SetupCategory(name: "Insurance", emoji: "🔒")
+            SetupCategory(name: "Property Tax", emoji: "📋"),
+            SetupCategory(name: "Home Insurance", emoji: "🔒"),
+            SetupCategory(name: "Home Maintenance", emoji: "🔧"),
+            SetupCategory(name: "Home Improvement", emoji: "🏗️"),
+            SetupCategory(name: "Furniture", emoji: "🛋️")
         ]),
         SetupGroup(name: "Transportation", categories: [
             SetupCategory(name: "Car Payment", emoji: "🚗"),
+            SetupCategory(name: "Car Insurance", emoji: "🔒"),
             SetupCategory(name: "Gas", emoji: "⛽️"),
+            SetupCategory(name: "Car Maintenance", emoji: "🔧"),
             SetupCategory(name: "Public Transit", emoji: "🚌"),
-            SetupCategory(name: "Maintenance", emoji: "🔧")
+            SetupCategory(name: "Parking", emoji: "🅿️")
         ]),
-        SetupGroup(name: "Food & Dining", categories: [
+        SetupGroup(name: "Food", categories: [
             SetupCategory(name: "Groceries", emoji: "🛒"),
             SetupCategory(name: "Restaurants", emoji: "🍽️"),
             SetupCategory(name: "Coffee Shops", emoji: "☕️"),
-            SetupCategory(name: "Takeout", emoji: "🥡")
+            SetupCategory(name: "Food Delivery", emoji: "🛵"),
+            SetupCategory(name: "Snacks", emoji: "🍿")
         ]),
-        SetupGroup(name: "Bills & Utilities", categories: [
-            SetupCategory(name: "Phone", emoji: "📱"),
-            SetupCategory(name: "Internet", emoji: "🌐"),
-            SetupCategory(name: "Streaming", emoji: "📺"),
-            SetupCategory(name: "Subscriptions", emoji: "📦")
+        SetupGroup(name: "Monthly Bills", categories: [
+            SetupCategory(name: "Utilities", emoji: "⚡️"),
+            SetupCategory(name: "Phone & Internet", emoji: "📱"),
+            SetupCategory(name: "Insurance", emoji: "📄"),
+            SetupCategory(name: "Credit Card", emoji: "💳"),
+            SetupCategory(name: "Loan Payments", emoji: "💰")
         ]),
         SetupGroup(name: "Shopping", categories: [
             SetupCategory(name: "Clothing", emoji: "👕"),
             SetupCategory(name: "Electronics", emoji: "🖥️"),
-            SetupCategory(name: "Home Goods", emoji: "🏠"),
-            SetupCategory(name: "Personal Care", emoji: "🧴")
+            SetupCategory(name: "Accessories", emoji: "👜"),
+            SetupCategory(name: "Jewelry", emoji: "💍"),
+            SetupCategory(name: "Equipment", emoji: "🛠"),
+            SetupCategory(name: "Gifts", emoji: "🎁"),
+            SetupCategory(name: "Online Shopping", emoji: "🛒")
         ]),
         SetupGroup(name: "Entertainment", categories: [
-            SetupCategory(name: "Movies", emoji: "🎬"),
+            SetupCategory(name: "Netflix", emoji: "📺"),
             SetupCategory(name: "Games", emoji: "🎮"),
             SetupCategory(name: "Sports", emoji: "⚽️"),
+            SetupCategory(name: "Concerts", emoji: "🎵"),
+            SetupCategory(name: "Streaming Services", emoji: "📺"),
+            SetupCategory(name: "Books", emoji: "📚"),
             SetupCategory(name: "Hobbies", emoji: "🎨")
+        ]),
+        SetupGroup(name: "Health", categories: [
+            SetupCategory(name: "Medical", emoji: "🏥"),
+            SetupCategory(name: "Dental", emoji: "🦷"),
+            SetupCategory(name: "Vision", emoji: "👓"),
+            SetupCategory(name: "Pharmacy", emoji: "💊"),
+            SetupCategory(name: "Fitness", emoji: "🏋")
+        ]),
+        SetupGroup(name: "Personal Care", categories: [
+            SetupCategory(name: "Hair Care", emoji: "💇"),
+            SetupCategory(name: "Skincare", emoji: "🧴"),
+            SetupCategory(name: "Cosmetics", emoji: "💄"),
+            SetupCategory(name: "Spa & Massage", emoji: "💆"),
+            SetupCategory(name: "Grooming", emoji: "✂️")
+        ]),
+        SetupGroup(name: "Education", categories: [
+            SetupCategory(name: "Tuition", emoji: "🎓"),
+            SetupCategory(name: "Books", emoji: "📚"),
+            SetupCategory(name: "Courses", emoji: "📝"),
+            SetupCategory(name: "School Supplies", emoji: "🎒"),
+            SetupCategory(name: "Student Loans", emoji: "💰")
+        ]),
+        SetupGroup(name: "Travel / Holidays", categories: [
+            SetupCategory(name: "Flights", emoji: "✈️"),
+            SetupCategory(name: "Hotels", emoji: "🏨"),
+            SetupCategory(name: "Car Rental", emoji: "🚗"),
+            SetupCategory(name: "Activities", emoji: "🎯"),
+            SetupCategory(name: "Travel Insurance", emoji: "🔒"),
+            SetupCategory(name: "Food & Dining", emoji: "🍽️"),
+            SetupCategory(name: "Shopping", emoji: "🛍️"),
+            SetupCategory(name: "Tours & Excursions", emoji: "🏛️"),
+            SetupCategory(name: "Beach Activities", emoji: "🏖️"),
+            SetupCategory(name: "Souvenirs", emoji: "🎁")
+        ]),
+        SetupGroup(name: "Pets", categories: [
+            SetupCategory(name: "Food", emoji: "🦴"),
+            SetupCategory(name: "Vet", emoji: "🏥"),
+            SetupCategory(name: "Supplies", emoji: "🪮"),
+            SetupCategory(name: "Grooming", emoji: "✂️"),
+            SetupCategory(name: "Insurance", emoji: "📄")
         ])
     ]
     
