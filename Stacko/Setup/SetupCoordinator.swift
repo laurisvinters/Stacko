@@ -15,6 +15,7 @@ class SetupCoordinator: ObservableObject {
     @Published var selectedGroups: [UUID] = []
     @Published var currentGroupIndex: Int = 0
     @Published var setupGroups: [SetupGroup] = []
+    @Published var selectedCategories: Set<UUID> = []
     
     var currentGroup: SetupGroup? {
         guard currentGroupIndex < setupGroups.count else { return nil }

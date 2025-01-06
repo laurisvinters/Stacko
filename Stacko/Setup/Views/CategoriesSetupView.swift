@@ -57,7 +57,6 @@ struct SetupCategoryRow: View {
 struct CategoriesSetupView: View {
     @ObservedObject var budget: Budget
     @ObservedObject var coordinator: SetupCoordinator
-    @State private var selectedCategories: Set<UUID> = []
     @State private var showingAddCategory = false
     @State private var selectedCategoryForEdit: SetupCategory?
     
@@ -73,7 +72,7 @@ struct CategoriesSetupView: View {
                     ForEach(currentGroup.categories) { category in
                         SetupCategoryRow(
                             category: category,
-                            isSelected: selectedCategories.contains(category.id),
+                            isSelected: coordinator.selectedCategories.contains(category.id),
                             onTap: { toggleCategory(category.id) },
                             onReview: { selectedCategoryForEdit = category }
                         )
@@ -109,10 +108,10 @@ struct CategoriesSetupView: View {
     }
     
     private func toggleCategory(_ id: UUID) {
-        if selectedCategories.contains(id) {
-            selectedCategories.remove(id)
+        if coordinator.selectedCategories.contains(id) {
+            coordinator.selectedCategories.remove(id)
         } else {
-            selectedCategories.insert(id)
+            coordinator.selectedCategories.insert(id)
         }
     }
     
@@ -125,7 +124,7 @@ struct CategoriesSetupView: View {
         )
         
         currentGroup.categories.append(newCategory)
-        selectedCategories.insert(newCategory.id)
+        coordinator.selectedCategories.insert(newCategory.id)
         
         // Update the group in coordinator
         if let index = coordinator.setupGroups.firstIndex(where: { $0.id == currentGroup.id }) {

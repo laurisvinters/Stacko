@@ -14,7 +14,7 @@ struct CategoryTargetsSetupView: View {
             
             ForEach(coordinator.setupGroups) { group in
                 Section(group.name) {
-                    ForEach(group.categories) { category in
+                    ForEach(group.categories.filter { coordinator.selectedCategories.contains($0.id) }) { category in
                         HStack {
                             VStack(alignment: .leading) {
                                 HStack {
