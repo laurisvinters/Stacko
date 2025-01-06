@@ -21,18 +21,11 @@ class SetupCoordinator: ObservableObject {
         return setupGroups[currentGroupIndex]
     }
     
-    enum SetupStep: Int, CaseIterable {
+    enum SetupStep {
         case groups
         case categories
+        case targets
         case review
-        
-        var title: String {
-            switch self {
-            case .groups: return "Setup Groups"
-            case .categories: return "Setup Categories"
-            case .review: return "Review"
-            }
-        }
     }
     
     func moveToNextGroup() {

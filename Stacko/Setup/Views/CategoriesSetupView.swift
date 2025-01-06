@@ -92,7 +92,7 @@ struct CategoriesSetupView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button("Next") {
-                    coordinator.moveToNextGroup()
+                    coordinator.currentStep = .targets
                 }
             }
         }
@@ -141,7 +141,7 @@ struct CategoriesSetupView: View {
                 id: id,
                 name: name,
                 emoji: emoji,
-                target: currentGroup.categories[index].target
+                target: nil // Keep target as nil for now
             )
             currentGroup.categories[index] = updatedCategory
             
@@ -211,7 +211,7 @@ struct SetupAddCategorySheet: View {
     }
 }
 
-// Add new EditCategorySheet view
+// Update EditCategorySheet to remove target functionality
 struct EditCategorySheet: View {
     @Environment(\.dismiss) private var dismiss
     let category: SetupCategory
