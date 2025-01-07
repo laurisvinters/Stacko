@@ -69,11 +69,11 @@ class Budget: ObservableObject {
         dataController.save()
         loadData()
         
-        // Return the created group
+        // Create a new CategoryGroup with safe unwrapping
         return CategoryGroup(
-            id: group.id!,
-            name: group.name!,
-            emoji: group.emoji,
+            id: group.id ?? UUID(), // Provide a fallback UUID
+            name: name, // We already have this string
+            emoji: emoji,
             categories: []
         )
     }

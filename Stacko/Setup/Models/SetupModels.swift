@@ -6,11 +6,21 @@ struct SetupGroup: Identifiable {
     let id: UUID
     let name: String
     var categories: [SetupCategory]
+    let description: String
+    let examples: String
     
-    init(id: UUID = UUID(), name: String, categories: [SetupCategory] = []) {
+    init(
+        id: UUID = UUID(), 
+        name: String, 
+        categories: [SetupCategory] = [], 
+        description: String = "", 
+        examples: String = ""
+    ) {
         self.id = id
         self.name = name
         self.categories = categories
+        self.description = description
+        self.examples = examples
     }
 }
 
