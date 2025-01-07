@@ -110,9 +110,9 @@ struct CategoriesSetupView: View {
             }
         }
         .sheet(isPresented: $showingAddCategory) {
-            SetupAddCategorySheet(budget: budget) { name, emoji in
+            SetupAddCategorySheet(onAdd: { name, emoji in
                 addCategory(name: name, emoji: emoji)
-            }
+            })
         }
         .sheet(item: $selectedCategoryForEdit) { category in
             EditCategorySheet(category: category) { newName, newEmoji in
@@ -181,40 +181,66 @@ struct CategoriesSetupView: View {
 // Rename to SetupAddCategorySheet to avoid conflict
 struct SetupAddCategorySheet: View {
     @Environment(\.dismiss) private var dismiss
-    @ObservedObject var budget: Budget
     let onAdd: (String, String) -> Void
     
     @State private var name = ""
     @State private var selectedEmoji = "🎯"
-    
-    private let suggestedEmojis = [
-        "🎯", "💰", "🏠", "🚗", "🍽️", "🛒", "💊", "🎮",
-        "👕", "✈️", "📱", "🎓", "🎁", "🏋️", "🎬", "📚"
-    ]
+    @State private var customEmoji = ""
+    @State private var isShowingCustomEmoji = false
     
     var body: some View {
         NavigationStack {
             Form {
                 TextField("Category Name", text: $name)
                 
-                Section("Choose Icon") {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 44))], spacing: 10) {
-                        ForEach(suggestedEmojis, id: \.self) { emoji in
-                            Button(action: { selectedEmoji = emoji }) {
-                                Text(emoji)
+                Section("Choose an Emoji") {
+                    ScrollView {
+                        LazyVGrid(columns: [
+                            GridItem(.adaptive(minimum: 44))
+                        ], spacing: 8) {
+                            ForEach(categoryEmojis, id: \.self) { emoji in
+                                Button(action: {
+                                    selectedEmoji = emoji
+                                    HapticManager.shared.impact()
+                                }) {
+                                    Text(emoji)
+                                        .font(.title2)
+                                        .padding(8)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .fill(selectedEmoji == emoji ? 
+                                                      Color.accentColor.opacity(0.2) : 
+                                                      Color.clear)
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            
+                            // Custom emoji button
+                            Button(action: {
+                                isShowingCustomEmoji = true
+                            }) {
+                                Image(systemName: "plus")
                                     .font(.title2)
                                     .padding(8)
                                     .background(
                                         RoundedRectangle(cornerRadius: 8)
-                                            .fill(selectedEmoji == emoji ? 
-                                                  Color.accentColor.opacity(0.2) : 
-                                                  Color.clear)
+                                            .stroke(Color.secondary, style: StrokeStyle(lineWidth: 1, dash: [5]))
                                     )
                             }
                             .buttonStyle(.plain)
                         }
                     }
                     .padding(.vertical, 8)
+                    
+                    if isShowingCustomEmoji {
+                        TextField("Enter custom emoji", text: $customEmoji)
+                            .onChange(of: customEmoji) { oldValue, newValue in
+                                if !newValue.isEmpty {
+                                    selectedEmoji = String(newValue.prefix(2))
+                                }
+                            }
+                    }
                 }
             }
             .navigationTitle("New Category")

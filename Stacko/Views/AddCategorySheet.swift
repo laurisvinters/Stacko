@@ -8,6 +8,8 @@ struct AddCategorySheet: View {
     @State private var name = ""
     @State private var selectedEmoji = "🎯"
     @State private var selectedGroupId: UUID?
+    @State private var customEmoji = ""
+    @State private var isShowingCustomEmoji = false
     
     init(budget: Budget, groupId: UUID? = nil) {
         self.budget = budget
@@ -15,39 +17,61 @@ struct AddCategorySheet: View {
         _selectedGroupId = State(initialValue: groupId)
     }
     
-    // Predefined emoji suggestions based on common budget categories
-    private let suggestedEmojis = [
-        "🎯", "💰", "🏠", "🚗", "🍽️", "🛒", "💊", "🎮",
-        "👕", "✈️", "📱", "🎓", "🎁", "🏋️", "🎬", "📚"
-    ]
-    
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Category Name", text: $name)
+                Section {
+                    TextField("Category Name", text: $name)
+                }
                 
-                Section("Choose Icon") {
-                    LazyVGrid(columns: [
-                        GridItem(.adaptive(minimum: 44))
-                    ], spacing: 10) {
-                        ForEach(suggestedEmojis, id: \.self) { emoji in
+                Section("Choose an Emoji") {
+                    ScrollView {
+                        LazyVGrid(columns: [
+                            GridItem(.adaptive(minimum: 44))
+                        ], spacing: 8) {
+                            ForEach(categoryEmojis, id: \.self) { emoji in
+                                Button(action: {
+                                    selectedEmoji = emoji
+                                    HapticManager.shared.impact()
+                                }) {
+                                    Text(emoji)
+                                        .font(.title2)
+                                        .padding(8)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .fill(selectedEmoji == emoji ? 
+                                                      Color.accentColor.opacity(0.2) : 
+                                                      Color.clear)
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            
+                            // Custom emoji button
                             Button(action: {
-                                selectedEmoji = emoji
+                                isShowingCustomEmoji = true
                             }) {
-                                Text(emoji)
+                                Image(systemName: "plus")
                                     .font(.title2)
                                     .padding(8)
                                     .background(
                                         RoundedRectangle(cornerRadius: 8)
-                                            .fill(selectedEmoji == emoji ? 
-                                                  Color.accentColor.opacity(0.2) : 
-                                                  Color.clear)
+                                            .stroke(Color.secondary, style: StrokeStyle(lineWidth: 1, dash: [5]))
                                     )
                             }
                             .buttonStyle(.plain)
                         }
                     }
                     .padding(.vertical, 8)
+                    
+                    if isShowingCustomEmoji {
+                        TextField("Enter custom emoji", text: $customEmoji)
+                            .onChange(of: customEmoji) { newValue in
+                                if !newValue.isEmpty {
+                                    selectedEmoji = String(newValue.prefix(2)) // Take only first emoji
+                                }
+                            }
+                    }
                 }
                 
                 Picker("Group", selection: $selectedGroupId) {
