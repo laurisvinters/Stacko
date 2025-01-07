@@ -95,8 +95,18 @@ struct CategoriesSetupView: View {
                         coordinator.currentStep = .targets
                     } else {
                         coordinator.moveToNextGroup()
+                        // Select all categories for the new group
+                        if let nextGroup = coordinator.currentGroup {
+                            coordinator.selectedCategories.formUnion(nextGroup.categories.map { $0.id })
+                        }
                     }
                 }
+            }
+        }
+        .onAppear {
+            // Select all categories by default for the current group
+            if let currentGroup = coordinator.currentGroup {
+                coordinator.selectedCategories.formUnion(currentGroup.categories.map { $0.id })
             }
         }
         .sheet(isPresented: $showingAddCategory) {
@@ -112,6 +122,18 @@ struct CategoriesSetupView: View {
     }
     
     private func toggleCategory(_ id: UUID) {
+        // For Income group, only allow selecting categories, not deselecting
+        if let currentGroup = coordinator.currentGroup,
+           currentGroup.name == "Income" {
+            // If not selected, allow selecting
+            if !coordinator.selectedCategories.contains(id) {
+                coordinator.selectedCategories.insert(id)
+            }
+            // If already selected, don't allow deselecting
+            return
+        }
+        
+        // For other groups, allow normal toggle behavior
         if coordinator.selectedCategories.contains(id) {
             coordinator.selectedCategories.remove(id)
         } else {

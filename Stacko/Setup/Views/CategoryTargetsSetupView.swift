@@ -5,6 +5,11 @@ struct CategoryTargetsSetupView: View {
     @ObservedObject var coordinator: SetupCoordinator
     @State private var selectedCategoryForTarget: SetupCategory?
     
+    // Filter out Income group for target setup
+    private var nonIncomeGroups: [SetupGroup] {
+        coordinator.setupGroups.filter { $0.name != "Income" }
+    }
+    
     var body: some View {
         List {
             Section {
@@ -12,7 +17,7 @@ struct CategoryTargetsSetupView: View {
                     .foregroundStyle(.secondary)
             }
             
-            ForEach(coordinator.setupGroups) { group in
+            ForEach(nonIncomeGroups) { group in
                 Section(group.name) {
                     ForEach(group.categories.filter { coordinator.selectedCategories.contains($0.id) }) { category in
                         HStack {

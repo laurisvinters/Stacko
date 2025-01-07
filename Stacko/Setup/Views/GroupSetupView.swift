@@ -96,12 +96,17 @@ struct GroupSetupView: View {
             SetupCategory(name: "Supplies", emoji: "🪮"),
             SetupCategory(name: "Grooming", emoji: "✂️"),
             SetupCategory(name: "Insurance", emoji: "📄")
+        ]),
+        SetupGroup(name: "Income", categories: [
+            SetupCategory(name: "Salary", emoji: "💰"),
+            SetupCategory(name: "Investments", emoji: "📈"),
+            SetupCategory(name: "Side Jobs", emoji: "💼"),
+            SetupCategory(name: "Gifts", emoji: "🎁"),
+            SetupCategory(name: "Rental Income", emoji: "🏠"),
+            SetupCategory(name: "Dividends", emoji: "💵"),
+            SetupCategory(name: "Refunds", emoji: "🔄")
         ])
     ]
-    
-    private var allGroups: [SetupGroup] {
-        Self.suggestedGroups + customGroups
-    }
     
     var body: some View {
         List {
@@ -110,24 +115,33 @@ struct GroupSetupView: View {
                     .foregroundStyle(.secondary)
             }
             
-            Section {
-                ForEach(allGroups) { group in
-                    Button {
-                        toggleGroup(group.id)
-                    } label: {
-                        HStack {
-                            Image(systemName: selectedGroups.contains(group.id) ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(selectedGroups.contains(group.id) ? .blue : .secondary)
-                                .imageScale(.large)
-                                .frame(width: 44, height: 44)
-                            
-                            Text(group.name)
-                                .font(.body)
-                            
-                            Spacer()
+            // Recommended Groups Section
+            Section("Recommended Groups") {
+                ForEach(Self.suggestedGroups) { group in
+                    GroupRow(
+                        group: group,
+                        isSelected: selectedGroups.contains(group.id),
+                        isRequired: group.name == "Income"
+                    ) {
+                        if group.name != "Income" {
+                            toggleGroup(group.id)
                         }
                     }
-                    .buttonStyle(.plain)
+                }
+            }
+            
+            // Custom Groups Section (only show if there are custom groups)
+            if !customGroups.isEmpty {
+                Section("Custom Groups") {
+                    ForEach(customGroups) { group in
+                        GroupRow(
+                            group: group,
+                            isSelected: selectedGroups.contains(group.id),
+                            isRequired: false
+                        ) {
+                            toggleGroup(group.id)
+                        }
+                    }
                 }
             }
             
@@ -144,12 +158,18 @@ struct GroupSetupView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button("Next") {
-                    // Clear any existing data before setting up new groups
                     coordinator.setupGroups.removeAll()
                     coordinator.selectedCategories.removeAll()
                     
-                    // Save selected groups to coordinator
-                    coordinator.setupGroups = allGroups.filter { selectedGroups.contains($0.id) }
+                    let incomeGroup = Self.suggestedGroups.first { $0.name == "Income" }
+                    var selectedGroupsList = (Self.suggestedGroups + customGroups)
+                        .filter { selectedGroups.contains($0.id) }
+                    
+                    if let incomeGroup = incomeGroup, !selectedGroupsList.contains(where: { $0.id == incomeGroup.id }) {
+                        selectedGroupsList.append(incomeGroup)
+                    }
+                    
+                    coordinator.setupGroups = selectedGroupsList
                     coordinator.currentStep = .categories
                 }
                 .disabled(selectedGroups.isEmpty)
@@ -163,14 +183,54 @@ struct GroupSetupView: View {
                 budget.deleteGroup(newGroup.id)
             }
         }
+        .onAppear {
+            selectedGroups = Set(Self.suggestedGroups.map { $0.id })
+        }
     }
     
     private func toggleGroup(_ id: UUID) {
+        if let group = Self.suggestedGroups.first(where: { $0.id == id }), group.name == "Income" {
+            return
+        }
+        
         if selectedGroups.contains(id) {
             selectedGroups.remove(id)
         } else {
             selectedGroups.insert(id)
         }
+    }
+}
+
+// Helper view for group rows
+struct GroupRow: View {
+    let group: SetupGroup
+    let isSelected: Bool
+    let isRequired: Bool
+    let onTap: () -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            HStack {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(isSelected ? .blue : .secondary)
+                    .imageScale(.large)
+                    .frame(width: 44, height: 44)
+                
+                Text(group.name)
+                    .font(.body)
+                
+                if isRequired {
+                    Spacer()
+                    Text("Required")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(isRequired)
     }
 }
 

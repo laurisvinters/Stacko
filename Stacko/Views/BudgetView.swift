@@ -2,36 +2,44 @@ import SwiftUI
 
 struct BudgetView: View {
     @ObservedObject var budget: Budget
+    @State private var selectedCategory: Category?
     @State private var showingAddCategory = false
     @State private var showingAddGroup = false
-    @State private var selectedCategory: Category?
+    
+    // Filter out Income group
+    private var nonIncomeGroups: [CategoryGroup] {
+        budget.categoryGroups.filter { $0.name != "Income" }
+    }
     
     var body: some View {
         List {
             Section {
                 HStack {
                     Text("Available to Budget")
+                        .font(.headline)
                     Spacer()
-                    Text(budget.availableToBudget, format: .currency(code: "USD"))
-                        .foregroundColor(budget.availableToBudget >= 0 ? .primary : .red)
+                    Text(availableToBudget, format: .currency(code: "USD"))
+                        .foregroundStyle(availableToBudget >= 0 ? Color.primary : Color.red)
                 }
             }
             
-            ForEach(budget.categoryGroups) { group in
-                Section {
+            ForEach(nonIncomeGroups) { group in
+                Section(group.name) {
                     ForEach(group.categories) { category in
                         CategoryRow(category: category)
-                            .contentShape(Rectangle())
                             .onTapGesture {
                                 selectedCategory = category
                             }
                     }
-                } header: {
-                    HStack {
-                        Text(group.name)
-                        Spacer()
-                        Text(groupTotal(group), format: .currency(code: "USD"))
-                            .foregroundStyle(.secondary)
+                    
+                    if !group.categories.isEmpty {
+                        HStack {
+                            Text("Total")
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text(groupTotal(group), format: .currency(code: "USD"))
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
             }
@@ -63,13 +71,31 @@ struct BudgetView: View {
     }
     
     private var availableToBudget: Double {
-        budget.monthlyIncome - budget.categoryGroups
+        // Get total balance from non-credit card accounts
+        let totalBalance = budget.accounts
+            .filter { !$0.isArchived }
+            .reduce(0.0) { sum, account in
+                if account.type == .creditCard {
+                    return sum + max(0, account.balance)
+                }
+                return sum + account.balance
+            }
+        
+        // Subtract allocated amounts from all non-income categories
+        let totalAllocated = nonIncomeGroups
             .flatMap(\.categories)
-            .reduce(0) { $0 + $1.allocated }
+            .reduce(0.0) { sum, category in
+                sum + category.allocated
+            }
+        
+        return totalBalance - totalAllocated
     }
     
     private func groupTotal(_ group: CategoryGroup) -> Double {
-        group.categories.reduce(0) { $0 + $1.allocated }
+        // Sum of allocated amounts in the group
+        group.categories.reduce(0) { sum, category in
+            sum + category.allocated
+        }
     }
 }
 
