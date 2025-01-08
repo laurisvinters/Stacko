@@ -3,6 +3,7 @@ import SwiftUI
 struct GroupSetupView: View {
     @ObservedObject var budget: Budget
     @ObservedObject var coordinator: SetupCoordinator
+    @ObservedObject var authManager: AuthenticationManager
     @State private var selectedGroups: Set<UUID> = []
     @State private var showingAddGroup = false
     @State private var customGroups: [SetupGroup] = []
@@ -189,6 +190,16 @@ struct GroupSetupView: View {
                 }
                 .navigationTitle("Setup Groups")
                 .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel Setup") {
+                            withAnimation {
+                                coordinator.cancelSetup()
+                                authManager.signOut()
+                            }
+                        }
+                        .foregroundStyle(.red)
+                    }
+                    
                     ToolbarItem(placement: .primaryAction) {
                         Button("Next") {
                             coordinator.setupGroups.removeAll()
@@ -302,10 +313,20 @@ struct GroupRow: View {
 }
 
 #Preview {
-    NavigationStack {
+    let dataController = DataController()
+    let budget = Budget(dataController: dataController)
+    let coordinator = SetupCoordinator()
+    let authManager = AuthenticationManager(
+        dataController: dataController,
+        budget: budget,
+        setupCoordinator: coordinator
+    )
+    
+    return NavigationStack {
         GroupSetupView(
-            budget: Budget(dataController: DataController()),
-            coordinator: SetupCoordinator()
+            budget: budget,
+            coordinator: coordinator,
+            authManager: authManager
         )
     }
 } 

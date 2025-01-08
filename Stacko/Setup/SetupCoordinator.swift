@@ -63,4 +63,10 @@ class SetupCoordinator: ObservableObject {
     var isLastGroup: Bool {
         currentGroupIndex == setupGroups.count - 1
     }
+    
+    func cancelSetup() {
+        setupGroups.removeAll()
+        selectedCategories.removeAll()
+        currentStep = .groups
+    }
 } 
