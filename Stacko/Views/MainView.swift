@@ -47,7 +47,11 @@ struct MainView: View {
                 }
             } else {
                 // Setup flow
-                SetupContainerView(budget: budget, coordinator: setupCoordinator)
+                SetupContainerView(
+                    budget: budget, 
+                    coordinator: setupCoordinator,
+                    authManager: authManager
+                )
             }
         }
     }

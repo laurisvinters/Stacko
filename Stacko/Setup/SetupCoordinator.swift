@@ -37,6 +37,14 @@ class SetupCoordinator: ObservableObject {
         }
     }
     
+    func moveToPreviousGroup() {
+        if currentGroupIndex > 0 {
+            currentGroupIndex -= 1
+        } else {
+            currentStep = .groups
+        }
+    }
+    
     func reset() {
         currentStep = .groups
         selectedGroups = []
@@ -54,5 +62,11 @@ class SetupCoordinator: ObservableObject {
     
     var isLastGroup: Bool {
         currentGroupIndex == setupGroups.count - 1
+    }
+    
+    func cancelSetup() {
+        setupGroups.removeAll()
+        selectedCategories.removeAll()
+        currentStep = .groups
     }
 } 

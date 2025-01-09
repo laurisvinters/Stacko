@@ -3,6 +3,7 @@ import SwiftUI
 struct GroupSetupView: View {
     @ObservedObject var budget: Budget
     @ObservedObject var coordinator: SetupCoordinator
+    @ObservedObject var authManager: AuthenticationManager
     @State private var selectedGroups: Set<UUID> = []
     @State private var showingAddGroup = false
     @State private var customGroups: [SetupGroup] = []
@@ -124,83 +125,119 @@ struct GroupSetupView: View {
     ]
     
     var body: some View {
-        List {
-            Section {
-                Text("Select the groups you want to track your spending in.")
-                    .foregroundStyle(.secondary)
-            }
-            
-            Section("Recommended Groups") {
-                ForEach(Self.suggestedGroups) { group in
-                    VStack(alignment: .leading, spacing: 0) {
-                        GroupRow(
-                            group: group,
-                            isSelected: selectedGroups.contains(group.id),
-                            isRequired: group.name == "Income"
-                        ) {
-                            if group.name != "Income" {
-                                toggleGroup(group.id)
+        Group {
+            if coordinator.currentStep == .groups {
+                // Original group selection view
+                VStack(spacing: 0) {
+                    List {
+                        Section {
+                            Text("Select the groups you want to track your spending in.")
+                                .foregroundStyle(.secondary)
+                        }
+                        
+                        Section("Recommended Groups") {
+                            ForEach(Self.suggestedGroups) { group in
+                                VStack(alignment: .leading, spacing: 0) {
+                                    GroupRow(
+                                        group: group,
+                                        isSelected: selectedGroups.contains(group.id),
+                                        isRequired: group.name == "Income"
+                                    ) {
+                                        if group.name != "Income" {
+                                            toggleGroup(group.id)
+                                        }
+                                    }
+                                    
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(group.description)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        Text("Examples: \(group.examples)")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    .padding(.leading, 32)
+                                    .padding(.bottom, 8)
+                                }
+                                .listRowInsets(EdgeInsets(top: 0, leading: 8, bottom: 0, trailing: 8))
                             }
                         }
                         
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(group.description)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Text("Examples: \(group.examples)")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
+                        // Custom Groups Section (only show if there are custom groups)
+                        if !customGroups.isEmpty {
+                            Section("Custom Groups") {
+                                ForEach(customGroups) { group in
+                                    GroupRow(
+                                        group: group,
+                                        isSelected: selectedGroups.contains(group.id),
+                                        isRequired: false
+                                    ) {
+                                        toggleGroup(group.id)
+                                    }
+                                }
+                            }
                         }
-                        .padding(.leading, 32)
-                        .padding(.bottom, 8)
-                    }
-                    .listRowInsets(EdgeInsets(top: 0, leading: 8, bottom: 0, trailing: 8))
-                }
-            }
-            
-            // Custom Groups Section (only show if there are custom groups)
-            if !customGroups.isEmpty {
-                Section("Custom Groups") {
-                    ForEach(customGroups) { group in
-                        GroupRow(
-                            group: group,
-                            isSelected: selectedGroups.contains(group.id),
-                            isRequired: false
-                        ) {
-                            toggleGroup(group.id)
+                        
+                        Section {
+                            Button {
+                                showingAddGroup = true
+                            } label: {
+                                Label("Add Custom Group", systemImage: "plus.circle")
+                                    .frame(height: 44)
+                            }
                         }
                     }
                 }
-            }
-            
-            Section {
-                Button {
-                    showingAddGroup = true
-                } label: {
-                    Label("Add Custom Group", systemImage: "plus.circle")
-                        .frame(height: 44)
-                }
-            }
-        }
-        .navigationTitle("Setup Groups")
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button("Next") {
-                    coordinator.setupGroups.removeAll()
-                    coordinator.selectedCategories.removeAll()
-                    
-                    let incomeGroup = Self.suggestedGroups.first { $0.name == "Income" }
-                    var selectedGroupsList = (Self.suggestedGroups + customGroups)
-                        .filter { selectedGroups.contains($0.id) }
-                    
-                    if let incomeGroup = incomeGroup, !selectedGroupsList.contains(where: { $0.id == incomeGroup.id }) {
-                        selectedGroupsList.append(incomeGroup)
+                .navigationTitle("Setup Groups")
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel Setup") {
+                            withAnimation {
+                                coordinator.cancelSetup()
+                                authManager.signOut()
+                            }
+                        }
+                        .foregroundStyle(.red)
                     }
                     
-                    coordinator.setupGroups = selectedGroupsList
-                    coordinator.currentStep = .categories
+                    ToolbarItem(placement: .primaryAction) {
+                        Button("Next") {
+                            coordinator.setupGroups.removeAll()
+                            coordinator.selectedCategories.removeAll()
+                            
+                            let incomeGroup = Self.suggestedGroups.first { $0.name == "Income" }
+                            var selectedGroupsList = (Self.suggestedGroups + customGroups)
+                                .filter { selectedGroups.contains($0.id) }
+                            
+                            if let incomeGroup = incomeGroup, !selectedGroupsList.contains(where: { $0.id == incomeGroup.id }) {
+                                selectedGroupsList.append(incomeGroup)
+                            }
+                            
+                            coordinator.setupGroups = selectedGroupsList
+                            coordinator.currentStep = .categories
+                        }
+                        .disabled(selectedGroups.isEmpty)
+                    }
                 }
-                .disabled(selectedGroups.isEmpty)
+            } else {
+                // Categories selection view
+                List {
+                    // ... your categories selection content ...
+                }
+                .navigationTitle("Select Categories")
+                .navigationBarBackButtonHidden(true)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button {
+                            coordinator.moveToPreviousGroup()
+                        } label: {
+                            HStack {
+                                Image(systemName: "chevron.left")
+                                Text("Back")
+                            }
+                        }
+                    }
+                }
             }
         }
         .sheet(isPresented: $showingAddGroup) {
@@ -276,10 +313,20 @@ struct GroupRow: View {
 }
 
 #Preview {
-    NavigationStack {
+    let dataController = DataController()
+    let budget = Budget(dataController: dataController)
+    let coordinator = SetupCoordinator()
+    let authManager = AuthenticationManager(
+        dataController: dataController,
+        budget: budget,
+        setupCoordinator: coordinator
+    )
+    
+    return NavigationStack {
         GroupSetupView(
-            budget: Budget(dataController: DataController()),
-            coordinator: SetupCoordinator()
+            budget: budget,
+            coordinator: coordinator,
+            authManager: authManager
         )
     }
 } 

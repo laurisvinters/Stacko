@@ -88,14 +88,25 @@ struct CategoriesSetupView: View {
             }
         }
         .navigationTitle("Setup Categories")
+        .navigationBarBackButtonHidden(true)
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    coordinator.moveToPreviousGroup()
+                } label: {
+                    HStack {
+                        Image(systemName: "chevron.left")
+                        Text("Back")
+                    }
+                }
+            }
+            
             ToolbarItem(placement: .primaryAction) {
                 Button(coordinator.isLastGroup ? "Next" : "Next Group") {
                     if coordinator.isLastGroup {
                         coordinator.currentStep = .targets
                     } else {
                         coordinator.moveToNextGroup()
-                        // Select all categories for the new group
                         if let nextGroup = coordinator.currentGroup {
                             coordinator.selectedCategories.formUnion(nextGroup.categories.map { $0.id })
                         }
