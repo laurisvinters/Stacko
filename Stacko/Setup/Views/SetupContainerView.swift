@@ -10,11 +10,7 @@ struct SetupContainerView: View {
             Group {
                 switch coordinator.currentStep {
                 case .groups:
-                    GroupSetupView(
-                        budget: budget, 
-                        coordinator: coordinator,
-                        authManager: authManager
-                    )
+                    GroupSetupView(budget: budget, coordinator: coordinator, authManager: authManager)
                 case .categories:
                     CategoriesSetupView(budget: budget, coordinator: coordinator)
                 case .targets:

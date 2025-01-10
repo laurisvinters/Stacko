@@ -39,7 +39,19 @@ struct ReviewSetupView: View {
             }
         }
         .navigationTitle("Review Setup")
+        .navigationBarBackButtonHidden(true)
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: {
+                    coordinator.moveToPreviousStep()
+                }) {
+                    HStack {
+                        Image(systemName: "chevron.left")
+                        Text("Back")
+                    }
+                }
+            }
+            
             ToolbarItem(placement: .primaryAction) {
                 Button("Complete Setup") {
                     saveSetup()

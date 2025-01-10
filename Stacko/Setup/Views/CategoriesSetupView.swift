@@ -91,9 +91,13 @@ struct CategoriesSetupView: View {
         .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
-                Button {
-                    coordinator.moveToPreviousGroup()
-                } label: {
+                Button(action: {
+                    if coordinator.currentGroupIndex > 0 {
+                        coordinator.moveToPreviousGroup()
+                    } else {
+                        coordinator.moveToPreviousStep()
+                    }
+                }) {
                     HStack {
                         Image(systemName: "chevron.left")
                         Text("Back")
@@ -107,6 +111,7 @@ struct CategoriesSetupView: View {
                         coordinator.currentStep = .targets
                     } else {
                         coordinator.moveToNextGroup()
+                        // Select all categories for the new group
                         if let nextGroup = coordinator.currentGroup {
                             coordinator.selectedCategories.formUnion(nextGroup.categories.map { $0.id })
                         }
@@ -281,6 +286,8 @@ struct EditCategorySheet: View {
     
     @State private var name: String
     @State private var selectedEmoji: String
+    @State private var customEmoji = ""
+    @State private var isShowingCustomEmoji = false
     
     init(category: SetupCategory, onSave: @escaping (String, String) -> Void) {
         self.category = category
@@ -289,34 +296,59 @@ struct EditCategorySheet: View {
         _selectedEmoji = State(initialValue: category.emoji)
     }
     
-    private let suggestedEmojis = [
-        "🎯", "💰", "🏠", "🚗", "🍽️", "🛒", "💊", "🎮",
-        "👕", "✈️", "📱", "🎓", "🎁", "🏋️", "🎬", "📚"
-    ]
-    
     var body: some View {
         NavigationStack {
             Form {
                 TextField("Category Name", text: $name)
                 
-                Section("Choose Icon") {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 44))], spacing: 10) {
-                        ForEach(suggestedEmojis, id: \.self) { emoji in
-                            Button(action: { selectedEmoji = emoji }) {
-                                Text(emoji)
+                Section("Choose an Emoji") {
+                    ScrollView {
+                        LazyVGrid(columns: [
+                            GridItem(.adaptive(minimum: 44))
+                        ], spacing: 8) {
+                            ForEach(categoryEmojis, id: \.self) { emoji in
+                                Button(action: {
+                                    selectedEmoji = emoji
+                                    HapticManager.shared.impact()
+                                }) {
+                                    Text(emoji)
+                                        .font(.title2)
+                                        .padding(8)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .fill(selectedEmoji == emoji ? 
+                                                      Color.accentColor.opacity(0.2) : 
+                                                      Color.clear)
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            
+                            // Custom emoji button
+                            Button(action: {
+                                isShowingCustomEmoji = true
+                            }) {
+                                Image(systemName: "plus")
                                     .font(.title2)
                                     .padding(8)
                                     .background(
                                         RoundedRectangle(cornerRadius: 8)
-                                            .fill(selectedEmoji == emoji ? 
-                                                  Color.accentColor.opacity(0.2) : 
-                                                  Color.clear)
+                                            .stroke(Color.secondary, style: StrokeStyle(lineWidth: 1, dash: [5]))
                                     )
                             }
                             .buttonStyle(.plain)
                         }
                     }
                     .padding(.vertical, 8)
+                    
+                    if isShowingCustomEmoji {
+                        TextField("Enter custom emoji", text: $customEmoji)
+                            .onChange(of: customEmoji) { oldValue, newValue in
+                                if !newValue.isEmpty {
+                                    selectedEmoji = String(newValue.prefix(2))
+                                }
+                            }
+                    }
                 }
             }
             .navigationTitle("Edit Category")

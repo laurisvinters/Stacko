@@ -55,7 +55,19 @@ struct CategoryTargetsSetupView: View {
             }
         }
         .navigationTitle("Set Targets")
+        .navigationBarBackButtonHidden(true)
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: {
+                    coordinator.moveToPreviousStep()
+                }) {
+                    HStack {
+                        Image(systemName: "chevron.left")
+                        Text("Back")
+                    }
+                }
+            }
+            
             ToolbarItem(placement: .primaryAction) {
                 Button("Next") {
                     coordinator.currentStep = .review
