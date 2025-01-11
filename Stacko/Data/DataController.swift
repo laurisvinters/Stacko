@@ -164,6 +164,8 @@ class DataController: ObservableObject {
     private func createTarget(from category: CDCategory) -> Target? {
         guard let targetType = category.targetType else { return nil }
         
+        print("Creating target of type: \(targetType)")  // Debug print
+        
         switch targetType {
         case "monthly":
             return Target(type: .monthly(amount: category.targetAmount))
@@ -172,6 +174,26 @@ class DataController: ObservableObject {
         case "byDate":
             guard let date = category.targetDate else { return nil }
             return Target(type: .byDate(amount: category.targetAmount, date: date))
+        case "custom":
+            guard let intervalType = category.targetIntervalType else { return nil }
+            let interval: Target.Interval
+            
+            switch intervalType {
+            case "days":
+                interval = .days(count: Int(category.targetDays))
+            case "months":
+                interval = .months(count: Int(category.targetMonths))
+            case "years":
+                interval = .years(count: Int(category.targetYears))
+            case "monthlyOnDay":
+                interval = .monthlyOnDay(day: Int(category.targetMonthDay))
+            default:
+                return nil
+            }
+            
+            return Target(type: .custom(amount: category.targetAmount, interval: interval))
+        case "noDate":
+            return Target(type: .noDate(amount: category.targetAmount))
         default:
             return nil
         }
@@ -295,21 +317,37 @@ class DataController: ObservableObject {
     }
     
     private func saveTarget(_ target: Target, for category: CDCategory) {
+        print("Attempting to save target") // Debug print
+        
+        // First clear all target-related fields to avoid stale data
+        category.targetType = nil
+        category.targetAmount = 0
+        category.targetDate = nil
+        category.targetIntervalType = nil
+        category.targetDays = 0
+        category.targetMonths = 0
+        category.targetYears = 0
+        category.targetMonthDay = 0
+        
         switch target.type {
         case .monthly(let amount):
+            print("Saving monthly target: \(amount)") // Debug print
             category.targetType = "monthly"
             category.targetAmount = amount
-            category.targetIntervalType = nil
+            
         case .weekly(let amount):
+            print("Saving weekly target: \(amount)") // Debug print
             category.targetType = "weekly"
             category.targetAmount = amount
-            category.targetIntervalType = nil
+            
         case .byDate(let amount, let date):
+            print("Saving byDate target: \(amount) for \(date)") // Debug print
             category.targetType = "byDate"
             category.targetAmount = amount
             category.targetDate = date
-            category.targetIntervalType = nil
+            
         case .custom(let amount, let interval):
+            print("Saving custom target: \(amount)") // Debug print
             category.targetType = "custom"
             category.targetAmount = amount
             
@@ -327,11 +365,36 @@ class DataController: ObservableObject {
                 category.targetIntervalType = "monthlyOnDay"
                 category.targetMonthDay = Int16(day)
             }
+            
         case .noDate(let amount):
+            print("Saving noDate target: \(amount)") // Debug print
             category.targetType = "noDate"
             category.targetAmount = amount
-            category.targetIntervalType = nil
         }
+        
+        save()
+        print("Target saved successfully") // Debug print
+    }
+    
+    // Public method for setting targets
+    func setTarget(for categoryId: UUID, target: Target?) {
+        guard let category = fetchCategory(id: categoryId) else { return }
+        
+        if let target = target {
+            saveTarget(target, for: category)
+        } else {
+            // Clear all target-related fields
+            category.targetType = nil
+            category.targetAmount = 0
+            category.targetDate = nil
+            category.targetIntervalType = nil
+            category.targetDays = 0
+            category.targetMonths = 0
+            category.targetYears = 0
+            category.targetMonthDay = 0
+        }
+        
+        save()
     }
     
     func allocateAmount(_ amount: Double, toCategoryId categoryId: UUID) {
@@ -344,12 +407,6 @@ class DataController: ObservableObject {
         guard let account = fetchAccount(id: id) else { return }
         account.clearedBalance = balance
         account.lastReconciled = date
-        save()
-    }
-    
-    func setTarget(for categoryId: UUID, target: Target) {
-        guard let category = fetchCategory(id: categoryId) else { return }
-        saveTarget(target, for: category)
         save()
     }
     
@@ -574,7 +631,12 @@ class DataController: ObservableObject {
     }
     
     private func loadTarget(from category: CDCategory) -> Target? {
-        guard let targetType = category.targetType else { return nil }
+        guard let targetType = category.targetType else { 
+            print("No target type found")
+            return nil 
+        }
+        
+        print("Loading target: \(targetType), amount: \(category.targetAmount), intervalType: \(category.targetIntervalType ?? "nil")")
         
         switch targetType {
         case "monthly":
@@ -582,10 +644,16 @@ class DataController: ObservableObject {
         case "weekly":
             return Target(type: .weekly(amount: category.targetAmount))
         case "byDate":
-            guard let date = category.targetDate else { return nil }
+            guard let date = category.targetDate else { 
+                print("Missing date for byDate target")
+                return nil 
+            }
             return Target(type: .byDate(amount: category.targetAmount, date: date))
         case "custom":
-            guard let intervalType = category.targetIntervalType else { return nil }
+            guard let intervalType = category.targetIntervalType else { 
+                print("Missing interval type for custom target")
+                return nil 
+            }
             let interval: Target.Interval
             
             switch intervalType {
@@ -598,6 +666,7 @@ class DataController: ObservableObject {
             case "monthlyOnDay":
                 interval = .monthlyOnDay(day: Int(category.targetMonthDay))
             default:
+                print("Unknown interval type: \(intervalType)")
                 return nil
             }
             
@@ -605,6 +674,7 @@ class DataController: ObservableObject {
         case "noDate":
             return Target(type: .noDate(amount: category.targetAmount))
         default:
+            print("Unknown target type: \(targetType)")
             return nil
         }
     }

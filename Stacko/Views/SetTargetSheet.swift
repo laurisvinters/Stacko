@@ -7,8 +7,10 @@ struct SetTargetSheet: View {
     @Environment(\.dismiss) private var dismiss
     
     @State private var targetType: TargetType = .monthly
+    @State private var monthlyType: MonthlyType = .regular
     @State private var amount = ""
     @State private var targetDate = Date()
+    @State private var hasDeadline = true
     @State private var intervalType: IntervalType = .days
     @State private var intervalCount = "7"
     @State private var selectedDayOfMonth = 1
@@ -19,14 +21,17 @@ struct SetTargetSheet: View {
         case weekly = "Weekly"
         case byDate = "By Date"
         case custom = "Custom"
-        case noDate = "No Date"
+    }
+    
+    private enum MonthlyType: String, CaseIterable {
+        case regular = "Regular"
+        case onDay = "On Specific Day"
     }
     
     private enum IntervalType: String, CaseIterable {
         case days = "Days"
         case months = "Months"
         case years = "Years"
-        case monthlyOnDay = "Monthly on Day"
     }
     
     var body: some View {
@@ -45,8 +50,32 @@ struct SetTargetSheet: View {
                         .focused($isAmountFocused)
                     
                     switch targetType {
+                    case .monthly:
+                        Picker("Monthly Type", selection: $monthlyType) {
+                            ForEach(MonthlyType.allCases, id: \.self) { type in
+                                Text(type.rawValue).tag(type)
+                            }
+                        }
+                        
+                        if monthlyType == .onDay {
+                            DatePicker(
+                                "Day of Month",
+                                selection: $targetDate,
+                                displayedComponents: .date
+                            )
+                            .datePickerStyle(.graphical)
+                            .onChange(of: targetDate) { _, newDate in
+                                selectedDayOfMonth = Calendar.current.component(.day, from: newDate)
+                            }
+                        }
+                        
                     case .byDate:
-                        DatePicker("Target Date", selection: $targetDate, displayedComponents: .date)
+                        Toggle("Has Deadline", isOn: $hasDeadline)
+                        
+                        if hasDeadline {
+                            DatePicker("Target Date", selection: $targetDate, displayedComponents: .date)
+                        }
+                        
                     case .custom:
                         Picker("Interval Type", selection: $intervalType) {
                             ForEach(IntervalType.allCases, id: \.self) { type in
@@ -54,16 +83,11 @@ struct SetTargetSheet: View {
                             }
                         }
                         
-                        switch intervalType {
-                        case .monthlyOnDay:
-                            Stepper("Day of Month: \(selectedDayOfMonth)", value: $selectedDayOfMonth, in: 1...31)
-                        default:
-                            HStack {
-                                Text("Every")
-                                TextField("Count", text: $intervalCount)
-                                    .keyboardType(.numberPad)
-                                Text(intervalType.rawValue.lowercased())
-                            }
+                        HStack {
+                            Text("Every")
+                            TextField("Count", text: $intervalCount)
+                                .keyboardType(.numberPad)
+                            Text(intervalType.rawValue.lowercased())
                         }
                     default:
                         EmptyView()
@@ -100,11 +124,20 @@ struct SetTargetSheet: View {
         let target: Target
         switch targetType {
         case .monthly:
-            target = Target(type: .monthly(amount: amountDouble))
+            if monthlyType == .onDay {
+                target = Target(type: .custom(amount: amountDouble, 
+                                            interval: .monthlyOnDay(day: selectedDayOfMonth)))
+            } else {
+                target = Target(type: .monthly(amount: amountDouble))
+            }
         case .weekly:
             target = Target(type: .weekly(amount: amountDouble))
         case .byDate:
-            target = Target(type: .byDate(amount: amountDouble, date: targetDate))
+            if hasDeadline {
+                target = Target(type: .byDate(amount: amountDouble, date: targetDate))
+            } else {
+                target = Target(type: .noDate(amount: amountDouble))
+            }
         case .custom:
             let interval: Target.Interval
             switch intervalType {
@@ -117,12 +150,8 @@ struct SetTargetSheet: View {
             case .years:
                 guard let count = Int(intervalCount), count > 0 else { return }
                 interval = .years(count: count)
-            case .monthlyOnDay:
-                interval = .monthlyOnDay(day: selectedDayOfMonth)
             }
             target = Target(type: .custom(amount: amountDouble, interval: interval))
-        case .noDate:
-            target = Target(type: .noDate(amount: amountDouble))
         }
         
         budget.setTarget(for: category.id, target: target)
