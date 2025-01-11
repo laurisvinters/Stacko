@@ -1,93 +1,84 @@
 import Foundation
 import CoreData
+import FirebaseAuth
+import FirebaseFirestore
 
 class AuthenticationManager: ObservableObject {
     @Published private(set) var currentUser: User?
     private let dataController: DataController
     private let budget: Budget
     private let setupCoordinator: SetupCoordinator
+    private let db = Firestore.firestore()
     
     init(dataController: DataController, budget: Budget, setupCoordinator: SetupCoordinator) {
         self.dataController = dataController
         self.budget = budget
         self.setupCoordinator = setupCoordinator
-        loadSavedUser()
-    }
-    
-    private func loadSavedUser() {
-        if let userData = UserDefaults.standard.data(forKey: "currentUser"),
-           let user = try? JSONDecoder().decode(User.self, from: userData) {
-            self.currentUser = user
-        }
-    }
-    
-    private func saveUser(_ user: User) {
-        if let encoded = try? JSONEncoder().encode(user) {
-            UserDefaults.standard.set(encoded, forKey: "currentUser")
-            UserDefaults.standard.set(user.id.uuidString, forKey: "currentUserId")
-        }
-        self.currentUser = user
-        dataController.clearCache()
-        budget.reload()
-    }
-    
-    func signUp(email: String, password: String, name: String) throws {
-        do {
-            // Check if email already exists
-            let request = CDUser.fetchRequest()
-            request.predicate = NSPredicate(format: "email == %@", email)
-            
-            if let _ = try dataController.container.viewContext.fetch(request).first {
-                throw AuthError.emailAlreadyExists
+        
+        // Listen for Firebase Auth state changes
+        Auth.auth().addStateDidChangeListener { [weak self] (_, firebaseUser) in
+            if let firebaseUser = firebaseUser {
+                self?.fetchUserData(for: firebaseUser)
+            } else {
+                self?.currentUser = nil
             }
+        }
+    }
+    
+    private func fetchUserData(for firebaseUser: FirebaseAuth.User) {
+        db.collection("users").document(firebaseUser.uid).getDocument { [weak self] (document, error) in
+            if let document = document, document.exists {
+                let data = document.data() ?? [:]
+                let user = User(
+                    id: UUID(uuidString: firebaseUser.uid) ?? UUID(),
+                    email: firebaseUser.email ?? "",
+                    name: data["name"] as? String ?? "",
+                    createdAt: (data["createdAt"] as? Timestamp)?.dateValue() ?? Date(),
+                    lastLoginAt: (data["lastLoginAt"] as? Timestamp)?.dateValue() ?? Date()
+                )
+                DispatchQueue.main.async {
+                    self?.currentUser = user
+                }
+            }
+        }
+    }
+    
+    func signUp(email: String, password: String, name: String) async throws {
+        do {
+            let result = try await Auth.auth().createUser(withEmail: email, password: password)
+            let user = result.user
             
-            // Create new user
-            let user = CDUser(context: dataController.container.viewContext)
-            user.id = UUID()
-            user.email = email
-            user.passwordHash = User.hashPassword(password)
-            user.name = name
-            user.createdAt = Date()
-            user.lastLoginAt = Date()
+            // Create user document in Firestore
+            let userData: [String: Any] = [
+                "email": email,
+                "name": name,
+                "createdAt": Timestamp(date: Date()),
+                "lastLoginAt": Timestamp(date: Date())
+            ]
             
-            try dataController.container.viewContext.save()
+            try await db.collection("users").document(user.uid).setData(userData)
             
-            saveUser(User(
-                id: user.id!,
-                email: user.email!,
-                name: user.name!,
-                createdAt: user.createdAt!,
-                lastLoginAt: user.lastLoginAt!
-            ))
+            // Fetch updated user data
+            fetchUserData(for: user)
+            
         } catch {
             print("Failed to create user: \(error)")
             throw error
         }
     }
     
-    func signIn(email: String, password: String) throws {
+    func signIn(email: String, password: String) async throws {
         do {
-            let request = CDUser.fetchRequest()
-            request.predicate = NSPredicate(format: "email == %@", email)
+            let result = try await Auth.auth().signIn(withEmail: email, password: password)
             
-            guard let user = try dataController.container.viewContext.fetch(request).first else {
-                throw AuthError.invalidCredentials
-            }
+            // Update last login
+            try await db.collection("users").document(result.user.uid).updateData([
+                "lastLoginAt": Timestamp(date: Date())
+            ])
             
-            guard user.passwordHash == User.hashPassword(password) else {
-                throw AuthError.invalidCredentials
-            }
+            // Fetch updated user data
+            fetchUserData(for: result.user)
             
-            user.lastLoginAt = Date()
-            try dataController.container.viewContext.save()
-            
-            saveUser(User(
-                id: user.id!,
-                email: user.email!,
-                name: user.name!,
-                createdAt: user.createdAt!,
-                lastLoginAt: user.lastLoginAt!
-            ))
         } catch {
             print("Sign in failed: \(error)")
             throw AuthError.invalidCredentials
@@ -95,89 +86,72 @@ class AuthenticationManager: ObservableObject {
     }
     
     func signOut() {
-        UserDefaults.standard.removeObject(forKey: "currentUser")
-        UserDefaults.standard.removeObject(forKey: "currentUserId")
-        currentUser = nil
-        dataController.clearCache()
-        budget.reload()
-        setupCoordinator.reset()  // Reset setup status
+        do {
+            try Auth.auth().signOut()
+            currentUser = nil
+            dataController.clearCache()
+            budget.reload()
+            setupCoordinator.reset()
+        } catch {
+            print("Error signing out: \(error)")
+        }
     }
     
-    func deleteAccount() {
-        guard let user = currentUser else { return }
-        dataController.deleteUser(user.id)
-        signOut()  // This will clear UserDefaults and currentUser
+    func deleteAccount() async throws {
+        guard let user = Auth.auth().currentUser else { return }
+        
+        do {
+            // Delete user data from Firestore
+            try await db.collection("users").document(user.uid).delete()
+            // Delete Firebase user
+            try await user.delete()
+            
+            signOut()
+        } catch {
+            print("Failed to delete account: \(error)")
+            throw error
+        }
     }
     
     func continueAsGuest() {
-        // Create a unique guest identifier
-        let guestId = UUID()
-        let guestEmail = "guest-\(guestId.uuidString)@temporary.com"
-        
-        // Create a temporary guest user
-        let guestUser = User(
-            id: guestId,
-            email: guestEmail,
-            name: "Guest",
-            createdAt: Date(),
-            lastLoginAt: Date()
-        )
-        
-        // Create guest user in Core Data
-        let user = CDUser(context: dataController.container.viewContext)
-        user.id = guestUser.id
-        user.email = guestUser.email
-        user.name = guestUser.name
-        user.createdAt = guestUser.createdAt
-        user.lastLoginAt = guestUser.lastLoginAt
-        user.passwordHash = "" // No password for guest
-        
-        try? dataController.container.viewContext.save()
-        
-        // Save guest user
-        saveUser(guestUser)
+        Task {
+            do {
+                try await Auth.auth().signInAnonymously()
+            } catch {
+                print("Failed to sign in anonymously: \(error)")
+            }
+        }
     }
     
     var isGuestUser: Bool {
-        currentUser?.email.contains("@temporary.com") ?? false
+        Auth.auth().currentUser?.isAnonymous ?? false
     }
     
-    func convertGuestToFullAccount(email: String, password: String, name: String) throws {
-        guard let guestUser = currentUser, isGuestUser else {
+    func convertGuestToFullAccount(email: String, password: String, name: String) async throws {
+        guard let currentFirebaseUser = Auth.auth().currentUser,
+              currentFirebaseUser.isAnonymous else {
             throw AuthError.notGuestUser
         }
         
         do {
-            // Check if email already exists
-            let request = CDUser.fetchRequest()
-            request.predicate = NSPredicate(format: "email == %@", email)
+            // Create email credential
+            let credential = EmailAuthProvider.credential(withEmail: email, password: password)
             
-            if let _ = try dataController.container.viewContext.fetch(request).first {
-                throw AuthError.emailAlreadyExists
-            }
+            // Link anonymous account with email credential
+            let result = try await currentFirebaseUser.link(with: credential)
             
-            // Create new user
-            let user = CDUser(context: dataController.container.viewContext)
-            user.id = UUID()
-            user.email = email
-            user.passwordHash = User.hashPassword(password)
-            user.name = name
-            user.createdAt = Date()
-            user.lastLoginAt = Date()
+            // Update user profile
+            let userData: [String: Any] = [
+                "email": email,
+                "name": name,
+                "createdAt": Timestamp(date: Date()),
+                "lastLoginAt": Timestamp(date: Date())
+            ]
             
-            try dataController.container.viewContext.save()
+            try await db.collection("users").document(result.user.uid).setData(userData)
             
-            // Transfer data from guest to new user
-            dataController.transferGuestData(from: guestUser.id, to: user.id!)
-            
-            // Sign in as new user
-            saveUser(User(
-                id: user.id!,
-                email: user.email!,
-                name: user.name!,
-                createdAt: user.createdAt!,
-                lastLoginAt: user.lastLoginAt!
-            ))
+            // Fetch updated user data
+            fetchUserData(for: result.user)
             
         } catch {
             print("Failed to convert guest account: \(error)")

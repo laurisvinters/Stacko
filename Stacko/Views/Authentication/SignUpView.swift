@@ -58,12 +58,18 @@ struct SignUpView: View {
     }
     
     private func signUp() {
-        do {
-            try authManager.signUp(email: email, password: password, name: name)
-            dismiss()
-        } catch {
-            errorMessage = error.localizedDescription
-            showingError = true
+        Task {
+            do {
+                try await authManager.signUp(email: email, password: password, name: name)
+                await MainActor.run {
+                    dismiss()
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    showingError = true
+                }
+            }
         }
     }
 } 

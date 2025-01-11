@@ -3,6 +3,8 @@ import SwiftUI
 struct ProfileView: View {
     @ObservedObject var authManager: AuthenticationManager
     @State private var showingDeleteConfirmation = false
+    @State private var showingError = false
+    @State private var errorMessage = ""
     
     var body: some View {
         List {
@@ -67,10 +69,24 @@ struct ProfileView: View {
         .alert("Delete Account", isPresented: $showingDeleteConfirmation) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
-                authManager.deleteAccount()
+                Task {
+                    do {
+                        try await authManager.deleteAccount()
+                    } catch {
+                        await MainActor.run {
+                            errorMessage = error.localizedDescription
+                            showingError = true
+                        }
+                    }
+                }
             }
         } message: {
             Text("Are you sure you want to delete your account? This action cannot be undone.")
+        }
+        .alert("Error", isPresented: $showingError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
         }
     }
 } 

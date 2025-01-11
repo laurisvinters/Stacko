@@ -63,11 +63,15 @@ struct SignInView: View {
     }
     
     private func signIn() {
-        do {
-            try authManager.signIn(email: email, password: password)
-        } catch {
-            errorMessage = error.localizedDescription
-            showingError = true
+        Task {
+            do {
+                try await authManager.signIn(email: email, password: password)
+            } catch {
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    showingError = true
+                }
+            }
         }
     }
 } 

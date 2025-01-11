@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		A40134972D2843BD00C205FE /* StackoModel.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = A40134952D2843BD00C205FE /* StackoModel.xcdatamodeld */; };
+		B1FB55652D32DE9F00F24DB0 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = B1FB55642D32DE9F00F24DB0 /* FirebaseAuth */; };
+		B1FB55672D32DE9F00F24DB0 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = B1FB55662D32DE9F00F24DB0 /* FirebaseFirestore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -57,6 +59,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B1FB55652D32DE9F00F24DB0 /* FirebaseAuth in Frameworks */,
+				B1FB55672D32DE9F00F24DB0 /* FirebaseFirestore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -118,6 +122,8 @@
 			);
 			name = Stacko;
 			packageProductDependencies = (
+				B1FB55642D32DE9F00F24DB0 /* FirebaseAuth */,
+				B1FB55662D32DE9F00F24DB0 /* FirebaseFirestore */,
 			);
 			productName = Stacko;
 			productReference = A43F11682D2589B50006557C /* Stacko.app */;
@@ -201,6 +207,9 @@
 			);
 			mainGroup = A43F115F2D2589B50006557C;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				B1FB55632D32DE9F00F24DB0 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A43F11692D2589B50006557C /* Products */;
 			projectDirPath = "";
@@ -571,6 +580,30 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		B1FB55632D32DE9F00F24DB0 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 11.6.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B1FB55642D32DE9F00F24DB0 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B1FB55632D32DE9F00F24DB0 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		B1FB55662D32DE9F00F24DB0 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B1FB55632D32DE9F00F24DB0 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCVersionGroup section */
 		A40134952D2843BD00C205FE /* StackoModel.xcdatamodeld */ = {

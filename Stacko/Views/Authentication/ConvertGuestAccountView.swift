@@ -63,12 +63,18 @@ struct ConvertGuestAccountView: View {
     }
     
     private func convertAccount() {
-        do {
-            try authManager.convertGuestToFullAccount(email: email, password: password, name: name)
-            dismiss()
-        } catch {
-            errorMessage = error.localizedDescription
-            showingError = true
+        Task {
+            do {
+                try await authManager.convertGuestToFullAccount(email: email, password: password, name: name)
+                await MainActor.run {
+                    dismiss()
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    showingError = true
+                }
+            }
         }
     }
 } 
