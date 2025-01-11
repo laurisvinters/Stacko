@@ -28,6 +28,19 @@ struct ReviewSetupView: View {
                                         Text("Weekly: \(amount, format: .currency(code: "USD"))")
                                     case .byDate(let amount, let date):
                                         Text("\(amount, format: .currency(code: "USD")) by \(date.formatted(date: .abbreviated, time: .omitted))")
+                                    case .custom(let amount, let interval):
+                                        switch interval {
+                                        case .days(let count):
+                                            Text("Every \(count) days: \(amount, format: .currency(code: "USD"))")
+                                        case .months(let count):
+                                            Text("Every \(count) months: \(amount, format: .currency(code: "USD"))")
+                                        case .years(let count):
+                                            Text("Every \(count) years: \(amount, format: .currency(code: "USD"))")
+                                        case .monthlyOnDay(let day):
+                                            Text("Monthly on day \(day): \(amount, format: .currency(code: "USD"))")
+                                        }
+                                    case .noDate(let amount):
+                                        Text("Target: \(amount, format: .currency(code: "USD"))")
                                     }
                                 }
                                 .font(.caption)

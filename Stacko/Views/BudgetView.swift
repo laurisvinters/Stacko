@@ -133,7 +133,7 @@ struct CategoryRow: View {
     
     private func targetAmount(for target: Target) -> Double {
         switch target.type {
-        case .monthly(let amount), .weekly(let amount), .byDate(let amount, _):
+        case .monthly(let amount), .weekly(let amount), .byDate(let amount, _), .custom(let amount, _), .noDate(let amount):
             return amount
         }
     }
@@ -166,7 +166,21 @@ struct CategoryRow: View {
         case .weekly(let amount):
             return "Weekly: \(formatter.string(from: NSNumber(value: amount)) ?? "$0")"
         case .byDate(let amount, let date):
-            return "Target: \(formatter.string(from: NSNumber(value: amount)) ?? "$0") by \(date.formatted(.dateTime.month().day()))"
+            return "\(formatter.string(from: NSNumber(value: amount)) ?? "$0") by \(date.formatted(.dateTime.month().day()))"
+        case .custom(let amount, let interval):
+            let amountStr = formatter.string(from: NSNumber(value: amount)) ?? "$0"
+            switch interval {
+            case .days(let count):
+                return "Every \(count) days: \(amountStr)"
+            case .months(let count):
+                return "Every \(count) months: \(amountStr)"
+            case .years(let count):
+                return "Every \(count) years: \(amountStr)"
+            case .monthlyOnDay(let day):
+                return "Monthly on day \(day): \(amountStr)"
+            }
+        case .noDate(let amount):
+            return "Target: \(formatter.string(from: NSNumber(value: amount)) ?? "$0")"
         }
     }
 } 

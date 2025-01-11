@@ -8,13 +8,27 @@ struct TargetPickerSheet: View {
     @State private var targetType: TargetType = .monthly
     @State private var amount = ""
     @State private var targetDate = Date()
+    @State private var customDays = "7"
     @FocusState private var isAmountFocused: Bool
     
     private enum TargetType: String, CaseIterable {
         case monthly = "Monthly"
         case weekly = "Weekly"
         case byDate = "By Date"
+        case custom = "Custom"
+        case noDate = "No Date"
     }
+    
+    private enum IntervalType: String, CaseIterable {
+        case days = "Days"
+        case months = "Months"
+        case years = "Years"
+        case monthlyOnDay = "Monthly on Day"
+    }
+    
+    @State private var intervalType: IntervalType = .days
+    @State private var intervalCount = "7"
+    @State private var selectedDayOfMonth = 1
     
     init(currentTarget: Target?, onSave: @escaping (Target?) -> Void) {
         self.currentTarget = currentTarget
@@ -33,6 +47,27 @@ struct TargetPickerSheet: View {
                 _targetType = State(initialValue: .byDate)
                 _amount = State(initialValue: String(amount))
                 _targetDate = State(initialValue: date)
+            case .custom(let amount, let interval):
+                _targetType = State(initialValue: .custom)
+                _amount = State(initialValue: String(amount))
+                
+                switch interval {
+                case .days(let count):
+                    _intervalType = State(initialValue: .days)
+                    _intervalCount = State(initialValue: String(count))
+                case .months(let count):
+                    _intervalType = State(initialValue: .months)
+                    _intervalCount = State(initialValue: String(count))
+                case .years(let count):
+                    _intervalType = State(initialValue: .years)
+                    _intervalCount = State(initialValue: String(count))
+                case .monthlyOnDay(let day):
+                    _intervalType = State(initialValue: .monthlyOnDay)
+                    _selectedDayOfMonth = State(initialValue: day)
+                }
+            case .noDate(let amount):
+                _targetType = State(initialValue: .noDate)
+                _amount = State(initialValue: String(amount))
             }
         }
     }
@@ -52,8 +87,29 @@ struct TargetPickerSheet: View {
                         .keyboardType(.decimalPad)
                         .focused($isAmountFocused)
                     
-                    if targetType == .byDate {
+                    switch targetType {
+                    case .byDate:
                         DatePicker("Target Date", selection: $targetDate, displayedComponents: .date)
+                    case .custom:
+                        Picker("Interval Type", selection: $intervalType) {
+                            ForEach(IntervalType.allCases, id: \.self) { type in
+                                Text(type.rawValue).tag(type)
+                            }
+                        }
+                        
+                        switch intervalType {
+                        case .monthlyOnDay:
+                            Stepper("Day of Month: \(selectedDayOfMonth)", value: $selectedDayOfMonth, in: 1...31)
+                        default:
+                            HStack {
+                                Text("Every")
+                                TextField("Count", text: $intervalCount)
+                                    .keyboardType(.numberPad)
+                                Text(intervalType.rawValue.lowercased())
+                            }
+                        }
+                    default:
+                        EmptyView()
                     }
                 }
                 
@@ -101,6 +157,24 @@ struct TargetPickerSheet: View {
             target = Target(type: .weekly(amount: amountDouble))
         case .byDate:
             target = Target(type: .byDate(amount: amountDouble, date: targetDate))
+        case .custom:
+            let interval: Target.Interval
+            switch intervalType {
+            case .days:
+                guard let count = Int(intervalCount), count > 0 else { return }
+                interval = .days(count: count)
+            case .months:
+                guard let count = Int(intervalCount), count > 0 else { return }
+                interval = .months(count: count)
+            case .years:
+                guard let count = Int(intervalCount), count > 0 else { return }
+                interval = .years(count: count)
+            case .monthlyOnDay:
+                interval = .monthlyOnDay(day: selectedDayOfMonth)
+            }
+            target = Target(type: .custom(amount: amountDouble, interval: interval))
+        case .noDate:
+            target = Target(type: .noDate(amount: amountDouble))
         }
         
         onSave(target)
@@ -108,5 +182,9 @@ struct TargetPickerSheet: View {
 }
 
 #Preview {
-    TargetPickerSheet(currentTarget: nil) { _ in }
+    NavigationStack {
+        TargetPickerSheet(currentTarget: nil) { _ in 
+            // Preview callback
+        }
+    }
 } 

@@ -51,14 +51,29 @@ struct CategoryDetailSheet: View {
     private var targetAmount: Double {
         guard let target = category.target else { return 0 }
         switch target.type {
-        case .monthly(let amount), .weekly(let amount), .byDate(let amount, _):
+        case .monthly(let amount), .weekly(let amount), .byDate(let amount, _), .custom(let amount, _), .noDate(let amount):
             return amount
         }
     }
     
     private var targetProgress: Double {
         guard let target = category.target else { return 0 }
-        return allocated / targetAmount
+        
+        switch target.type {
+        case .monthly(let amount), .weekly(let amount), .byDate(let amount, _), .custom(let amount, _), .noDate(let amount):
+            return amount > 0 ? category.allocated / amount : 0
+        }
+    }
+    
+    private var progressColor: Color {
+        let progress = targetProgress
+        if progress >= 1.0 {
+            return .green
+        } else if progress >= 0.7 {
+            return .yellow
+        } else {
+            return .blue
+        }
     }
     
     var body: some View {
@@ -124,26 +139,47 @@ struct CategoryDetailSheet: View {
                                     Spacer()
                                     Text(amount, format: .currency(code: "USD"))
                                 case .byDate(let amount, let date):
-                                    VStack(alignment: .leading) {
-                                        Text("Target by \(date.formatted(date: .abbreviated, time: .omitted)):")
-                                        Text(amount, format: .currency(code: "USD"))
+                                    Text("Target by \(date.formatted(date: .abbreviated, time: .omitted)):")
+                                    Spacer()
+                                    Text(amount, format: .currency(code: "USD"))
+                                case .custom(let amount, let interval):
+                                    switch interval {
+                                    case .days(let count):
+                                        Text("Every \(count) days:")
+                                    case .months(let count):
+                                        Text("Every \(count) months:")
+                                    case .years(let count):
+                                        Text("Every \(count) years:")
+                                    case .monthlyOnDay(let day):
+                                        Text("Monthly on day \(day):")
                                     }
+                                    Spacer()
+                                    Text(amount, format: .currency(code: "USD"))
+                                case .noDate(let amount):
+                                    Text("Target amount:")
+                                    Spacer()
+                                    Text(amount, format: .currency(code: "USD"))
                                 }
                             }
                             .foregroundStyle(.secondary)
                             
-                            ProgressView(value: allocated, total: targetAmount)
-                                .tint(targetProgress < 1.0 ? .blue : .green)
-                            
-                            HStack {
-                                Text("Progress:")
-                                Spacer()
-                                Text(allocated, format: .currency(code: "USD"))
-                                Text("of")
-                                Text(targetAmount, format: .currency(code: "USD"))
-                                Text("(\(Int(targetProgress * 100))%)")
+                            // Progress bar
+                            if case .noDate = target.type {
+                                // Don't show progress for no-date targets
+                            } else {
+                                ProgressView(value: targetProgress) {
+                                    HStack {
+                                        Text("\(Int(targetProgress * 100))%")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        Spacer()
+                                        Text(category.allocated, format: .currency(code: "USD"))
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                .tint(progressColor)
                             }
-                            .font(.caption)
                         }
                     } else {
                         Button("Set Target") {

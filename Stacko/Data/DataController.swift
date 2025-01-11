@@ -299,13 +299,38 @@ class DataController: ObservableObject {
         case .monthly(let amount):
             category.targetType = "monthly"
             category.targetAmount = amount
+            category.targetIntervalType = nil
         case .weekly(let amount):
             category.targetType = "weekly"
             category.targetAmount = amount
+            category.targetIntervalType = nil
         case .byDate(let amount, let date):
             category.targetType = "byDate"
             category.targetAmount = amount
             category.targetDate = date
+            category.targetIntervalType = nil
+        case .custom(let amount, let interval):
+            category.targetType = "custom"
+            category.targetAmount = amount
+            
+            switch interval {
+            case .days(let count):
+                category.targetIntervalType = "days"
+                category.targetDays = Int16(count)
+            case .months(let count):
+                category.targetIntervalType = "months"
+                category.targetMonths = Int16(count)
+            case .years(let count):
+                category.targetIntervalType = "years"
+                category.targetYears = Int16(count)
+            case .monthlyOnDay(let day):
+                category.targetIntervalType = "monthlyOnDay"
+                category.targetMonthDay = Int16(day)
+            }
+        case .noDate(let amount):
+            category.targetType = "noDate"
+            category.targetAmount = amount
+            category.targetIntervalType = nil
         }
     }
     
@@ -545,6 +570,42 @@ class DataController: ObservableObject {
         if let group = try? container.viewContext.fetch(request).first {
             container.viewContext.delete(group)
             save()
+        }
+    }
+    
+    private func loadTarget(from category: CDCategory) -> Target? {
+        guard let targetType = category.targetType else { return nil }
+        
+        switch targetType {
+        case "monthly":
+            return Target(type: .monthly(amount: category.targetAmount))
+        case "weekly":
+            return Target(type: .weekly(amount: category.targetAmount))
+        case "byDate":
+            guard let date = category.targetDate else { return nil }
+            return Target(type: .byDate(amount: category.targetAmount, date: date))
+        case "custom":
+            guard let intervalType = category.targetIntervalType else { return nil }
+            let interval: Target.Interval
+            
+            switch intervalType {
+            case "days":
+                interval = .days(count: Int(category.targetDays))
+            case "months":
+                interval = .months(count: Int(category.targetMonths))
+            case "years":
+                interval = .years(count: Int(category.targetYears))
+            case "monthlyOnDay":
+                interval = .monthlyOnDay(day: Int(category.targetMonthDay))
+            default:
+                return nil
+            }
+            
+            return Target(type: .custom(amount: category.targetAmount, interval: interval))
+        case "noDate":
+            return Target(type: .noDate(amount: category.targetAmount))
+        default:
+            return nil
         }
     }
 } 

@@ -23,7 +23,12 @@
         <attribute name="spent" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="targetAmount" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="targetDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="targetDays" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="targetIntervalType" optional="YES" attributeType="String"/>
+        <attribute name="targetMonthDay" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="targetMonths" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="targetType" optional="YES" attributeType="String"/>
+        <attribute name="targetYears" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
         <relationship name="group" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="CDCategoryGroup" inverseName="categories" inverseEntity="CDCategoryGroup"/>
         <relationship name="owner" maxCount="1" deletionRule="Nullify" destinationEntity="CDUser" inverseName="categories" inverseEntity="CDUser"/>
         <relationship name="templates" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="CDTemplate" inverseName="category" inverseEntity="CDTemplate"/>
