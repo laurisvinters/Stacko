@@ -194,18 +194,10 @@ struct GroupSetupView: View {
             
             ToolbarItem(placement: .primaryAction) {
                 Button("Next") {
-                    coordinator.setupGroups.removeAll()
-                    coordinator.selectedCategories.removeAll()
-                    
-                    let incomeGroup = Self.suggestedGroups.first { $0.name == "Income" }
-                    var selectedGroupsList = (Self.suggestedGroups + customGroups)
+                    let selectedSetupGroups = Self.suggestedGroups
                         .filter { selectedGroups.contains($0.id) }
-                    
-                    if let incomeGroup = incomeGroup, !selectedGroupsList.contains(where: { $0.id == incomeGroup.id }) {
-                        selectedGroupsList.append(incomeGroup)
-                    }
-                    
-                    coordinator.setupGroups = selectedGroupsList
+                        .map { $0 }
+                    coordinator.setInitialGroups(selectedSetupGroups + customGroups)
                     coordinator.currentStep = .categories
                 }
                 .disabled(selectedGroups.isEmpty)

@@ -3,36 +3,59 @@ import SwiftUI
 enum SetupStep {
     case groups
     case categories
-    case targets
+    case accounts
     case review
 }
 
 class SetupCoordinator: ObservableObject {
     @Published var currentStep: SetupStep = .groups
-    @Published var currentGroupIndex = 0
-    @Published var setupGroups: [SetupGroup] = []
-    @Published var selectedCategories: Set<UUID> = []
     @Published var isSetupComplete = false
-    
-    var currentGroup: SetupGroup? {
-        guard currentGroupIndex < setupGroups.count else { return nil }
-        return setupGroups[currentGroupIndex]
-    }
+    @Published var setupGroups: [SetupGroup] = []
+    @Published var selectedCategories = Set<UUID>()
+    @Published var setupAccounts: [SetupAccount] = []
+    @Published var currentGroup: SetupGroup?
+    @Published var currentGroupIndex: Int = 0
     
     var isLastGroup: Bool {
         currentGroupIndex == setupGroups.count - 1
     }
     
+    func setInitialGroups(_ groups: [SetupGroup]) {
+        setupGroups = groups
+        currentGroupIndex = 0
+        currentGroup = groups.first
+        
+        selectedCategories = Set(groups.flatMap { group in
+            group.categories.map { $0.id }
+        })
+    }
+    
     func moveToNextGroup() {
         if currentGroupIndex < setupGroups.count - 1 {
             currentGroupIndex += 1
+            currentGroup = setupGroups[currentGroupIndex]
         }
     }
     
     func moveToPreviousGroup() {
         if currentGroupIndex > 0 {
             currentGroupIndex -= 1
+            currentGroup = setupGroups[currentGroupIndex]
         }
+    }
+    
+    func cancelSetup() {
+        currentStep = .groups
+        setupGroups.removeAll()
+        selectedCategories.removeAll()
+        setupAccounts.removeAll()
+        currentGroup = nil
+        currentGroupIndex = 0
+        isSetupComplete = false
+    }
+    
+    func reset() {
+        cancelSetup()
     }
     
     func moveToPreviousStep() {
@@ -42,23 +65,10 @@ class SetupCoordinator: ObservableObject {
         case .categories:
             currentStep = .groups
             currentGroupIndex = 0
-        case .targets:
+        case .accounts:
             currentStep = .categories
         case .review:
-            currentStep = .targets
+            currentStep = .accounts
         }
-    }
-    
-    func cancelSetup() {
-        reset()
-    }
-    
-    func reset() {
-        // Reset all state to initial values
-        currentStep = .groups
-        currentGroupIndex = 0
-        setupGroups = []
-        selectedCategories = []
-        isSetupComplete = false
     }
 } 

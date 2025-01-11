@@ -108,7 +108,7 @@ struct CategoriesSetupView: View {
             ToolbarItem(placement: .primaryAction) {
                 Button(coordinator.isLastGroup ? "Next" : "Next Group") {
                     if coordinator.isLastGroup {
-                        coordinator.currentStep = .targets
+                        coordinator.currentStep = .accounts
                     } else {
                         coordinator.moveToNextGroup()
                         // Select all categories for the new group

@@ -214,7 +214,14 @@ class DataController: ObservableObject {
     }
     
     // MARK: - Account Methods
-    func addAccount(name: String, type: Account.AccountType, category: Account.AccountCategory = .personal, icon: String) {
+    func addAccount(
+        name: String, 
+        type: Account.AccountType, 
+        category: Account.AccountCategory = .personal, 
+        icon: String,
+        balance: Double = 0,
+        notes: String? = nil
+    ) {
         guard let owner = getCurrentUser() else { return }
         
         let account = CDAccount(context: container.viewContext)
@@ -223,9 +230,10 @@ class DataController: ObservableObject {
         account.type = type.rawValue
         account.category = category.rawValue
         account.icon = icon
-        account.balance = 0
-        account.clearedBalance = 0
+        account.balance = balance
+        account.clearedBalance = balance  // Set cleared balance to initial balance
         account.isArchived = false
+        account.notes = notes
         account.owner = owner
         
         save()

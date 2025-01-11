@@ -52,9 +52,23 @@ class Budget: ObservableObject {
         loadData()
     }
     
-    func addAccount(name: String, type: Account.AccountType, category: Account.AccountCategory = .personal, icon: String) {
-        dataController.addAccount(name: name, type: type, category: category, icon: icon)
-        loadData()
+    func addAccount(
+        name: String,
+        type: Account.AccountType,
+        category: Account.AccountCategory = .personal,
+        icon: String,
+        balance: Double = 0,
+        notes: String? = nil
+    ) {
+        dataController.addAccount(
+            name: name,
+            type: type,
+            category: category,
+            icon: icon,
+            balance: balance,
+            notes: notes
+        )
+        loadData()  // Make sure to reload data after adding account
     }
     
     @discardableResult

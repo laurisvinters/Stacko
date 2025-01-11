@@ -53,7 +53,7 @@ struct SetupCategoriesView: View {
             ToolbarItem(placement: .primaryAction) {
                 Button(coordinator.isLastGroup ? "Next" : "Next Group") {
                     if coordinator.isLastGroup {
-                        coordinator.currentStep = .targets
+                        coordinator.currentStep = .accounts
                     } else {
                         coordinator.moveToNextGroup()
                     }

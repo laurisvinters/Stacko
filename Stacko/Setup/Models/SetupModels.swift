@@ -42,3 +42,13 @@ struct SetupCategory: Identifiable {
 struct IdentifiableUUID: Identifiable {
     let id: UUID
 } 
+
+struct SetupAccount: Identifiable {
+    let id: UUID
+    let name: String
+    let type: Account.AccountType
+    let category: Account.AccountCategory
+    let balance: Double
+    let icon: String
+    let notes: String?
+} 
