@@ -57,8 +57,10 @@ struct CategoryDetailSheet: View {
     }
     
     private var targetProgress: Double {
-        guard let target = category.target else { return 0 }
-        return allocated / targetAmount
+        if category.target != nil {
+            return allocated / targetAmount
+        }
+        return 0
     }
     
     var body: some View {

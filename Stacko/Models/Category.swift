@@ -20,9 +20,13 @@ struct Category: Identifiable, Codable {
     }
     
     var targetProgress: Double {
-        guard let target = target else { return 0 }
-        
-        return allocated
+        if let target = target {
+            switch target.type {
+            case .monthly(let amount), .weekly(let amount), .byDate(let amount, _):
+                return allocated / amount
+            }
+        }
+        return 0
     }
 }
 

@@ -47,14 +47,14 @@ struct ReviewCategoriesView: View {
     private func saveSelectedCategories() {
         for group in suggestedGroups where selectedGroups.contains(group.id) {
             // Add group without emoji
-            let createdGroupId = budget.addCategoryGroup(name: group.name, emoji: nil).id
+            guard let createdGroup = budget.addCategoryGroup(name: group.name, emoji: nil) else { continue }
             
             // Add selected categories for this group
             for category in group.categories where selectedCategories.contains(category.id) {
                 budget.addCategory(
                     name: category.name,
                     emoji: category.emoji,
-                    groupId: createdGroupId,
+                    groupId: createdGroup.id,
                     target: category.target
                 )
             }

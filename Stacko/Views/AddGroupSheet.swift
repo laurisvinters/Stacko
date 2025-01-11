@@ -28,9 +28,13 @@ struct AddGroupSheet: View {
     }
     
     private func saveGroup() {
-        let group = budget.addCategoryGroup(name: name, emoji: nil)
-        onAdd?(group)
-        dismiss()
+        if let group = budget.addCategoryGroup(name: name, emoji: nil) {
+            onAdd?(group)
+            dismiss()
+        } else {
+            // Handle error case - could show an alert here
+            print("⚠️ Failed to create category group")
+        }
     }
 }
 

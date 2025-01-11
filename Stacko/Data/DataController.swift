@@ -1,16 +1,24 @@
 import Foundation
 import CoreData
 import SwiftUI
+import FirebaseFirestore
+import FirebaseAuth
 
 class DataController: ObservableObject {
     let container: NSPersistentContainer
     private var currentUserCache: CDUser?
     private var fetchBatchSize = 20 // Default batch size
     
+    // Add published properties to trigger UI updates
+    @Published private(set) var categoriesLoaded = false
+    @Published private(set) var lastSyncTimestamp: Date?
+    
     // Add caching for frequently accessed data
     private var accountsCache: [Account]?
     private var accountsCacheTimestamp: Date?
     private let cacheDuration: TimeInterval = 5 // 5 seconds cache
+    
+    private let db = Firestore.firestore()
     
     init() {
         container = NSPersistentContainer(name: "StackoModel")
@@ -31,6 +39,7 @@ class DataController: ObservableObject {
             }
         }
         
+        // Configure merge policy to handle duplicates
         container.viewContext.automaticallyMergesChangesFromParent = true
         container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
     }
@@ -101,33 +110,48 @@ class DataController: ObservableObject {
     func fetchAllCategoryGroups() -> [CategoryGroup] {
         guard let owner = getCurrentUser() else { return [] }
         
-        let request = CDCategoryGroup.fetchRequest()
+        let request: NSFetchRequest<CDCategoryGroup> = CDCategoryGroup.fetchRequest()
         request.predicate = NSPredicate(format: "owner == %@", owner)
         request.sortDescriptors = [NSSortDescriptor(keyPath: \CDCategoryGroup.order, ascending: true)]
         
-        guard let groups = try? container.viewContext.fetch(request) else { return [] }
-        return groups.compactMap { cdGroup in
-            guard let id = cdGroup.id,
-                  let name = cdGroup.name else { return nil }
-            
-            return CategoryGroup(
-                id: id,
-                name: name,
-                emoji: cdGroup.emoji,
-                categories: (cdGroup.categories?.allObjects as? [CDCategory])?.compactMap { cdCategory in
-                    guard let categoryId = cdCategory.id,
-                          let categoryName = cdCategory.name else { return nil }
-                    
-                    return Category(
-                        id: categoryId,
-                        name: categoryName,
-                        emoji: cdCategory.emoji,
-                        target: createTarget(from: cdCategory),
-                        allocated: cdCategory.allocated,
-                        spent: cdCategory.spent
+        // Add distinct by id to prevent duplicates
+        request.returnsDistinctResults = true
+        
+        do {
+            let groups = try container.viewContext.fetch(request)
+            return groups
+                .filter { $0.id != nil }
+                .map { group in
+                    // Fetch categories for this group
+                    let categoryRequest: NSFetchRequest<CDCategory> = CDCategory.fetchRequest()
+                    categoryRequest.predicate = NSPredicate(format: "group == %@ AND owner == %@", group, owner)
+                    categoryRequest.sortDescriptors = [NSSortDescriptor(keyPath: \CDCategory.name, ascending: true)]
+                
+                    // Add distinct by id for categories as well
+                    categoryRequest.returnsDistinctResults = true
+                
+                    let categories = (try? container.viewContext.fetch(categoryRequest)) ?? []
+                
+                    return CategoryGroup(
+                        id: group.id!,  // Safe to force unwrap since we filtered nil values
+                        name: group.name ?? "",
+                        emoji: group.emoji,
+                        categories: categories.compactMap { category in
+                            guard let categoryId = category.id else { return nil }
+                            return Category(
+                                id: categoryId,
+                                name: category.name ?? "",
+                                emoji: category.emoji,
+                                target: createTarget(from: category),
+                                allocated: category.allocated,
+                                spent: category.spent
+                            )
+                        }
                     )
-                } ?? []
-            )
+                }
+        } catch {
+            print("Error fetching category groups: \(error)")
+            return []
         }
     }
     
@@ -210,8 +234,13 @@ class DataController: ObservableObject {
     }
     
     // MARK: - Category Methods
-    func addCategoryGroup(name: String, emoji: String?) -> CDCategoryGroup {
-        guard let owner = getCurrentUser() else { fatalError("No user logged in") }
+    func addCategoryGroup(name: String, emoji: String?) -> CDCategoryGroup? {
+        guard let owner = getCurrentUser() else {
+            print("⚠️ No user logged in")
+            return nil
+        }
+        
+        print("📝 Creating category group: \(name)")
         
         let group = CDCategoryGroup(context: container.viewContext)
         group.id = UUID()
@@ -221,12 +250,39 @@ class DataController: ObservableObject {
         group.owner = owner
         
         save()
+        
+        // Save to Firestore if user is authenticated
+        if let userId = Auth.auth().currentUser?.uid {
+            let groupData: [String: Any] = [
+                "id": group.id?.uuidString ?? "",
+                "name": name,
+                "emoji": emoji ?? "",
+                "order": group.order
+            ]
+            
+            print("🔄 Saving group to Firestore: \(groupData)")
+            
+            db.collection("users").document(userId)
+                .collection("categoryGroups").document(group.id?.uuidString ?? "")
+                .setData(groupData) { error in
+                    if let error = error {
+                        print("❌ Error saving category group to Firestore: \(error)")
+                    } else {
+                        print("✅ Successfully saved group to Firestore")
+                    }
+                }
+        } else {
+            print("⚠️ No authenticated user, skipping Firestore save")
+        }
+        
         return group
     }
     
     func addCategory(name: String, emoji: String?, groupId: UUID, target: Target? = nil) {
         guard let owner = getCurrentUser(),
               let group = fetchCategoryGroup(id: groupId) else { return }
+        
+        print("📝 Creating category: \(name) in group: \(group.name ?? "")")
         
         let category = CDCategory(context: container.viewContext)
         category.id = UUID()
@@ -242,6 +298,240 @@ class DataController: ObservableObject {
         }
         
         save()
+        
+        // Save to Firestore if user is authenticated
+        if let userId = Auth.auth().currentUser?.uid {
+            var categoryData: [String: Any] = [
+                "id": category.id?.uuidString ?? "",
+                "name": name,
+                "emoji": emoji ?? "",
+                "groupId": groupId.uuidString,
+                "allocated": 0,
+                "spent": 0
+            ]
+            
+            // Add target data if exists
+            if let target = target {
+                switch target.type {
+                case .monthly(let amount):
+                    categoryData["targetType"] = "monthly"
+                    categoryData["targetAmount"] = amount
+                case .weekly(let amount):
+                    categoryData["targetType"] = "weekly"
+                    categoryData["targetAmount"] = amount
+                case .byDate(let amount, let date):
+                    categoryData["targetType"] = "byDate"
+                    categoryData["targetAmount"] = amount
+                    categoryData["targetDate"] = date
+                }
+            }
+            
+            print("🔄 Saving category to Firestore: \(categoryData)")
+            
+            db.collection("users").document(userId)
+                .collection("categories").document(category.id?.uuidString ?? "")
+                .setData(categoryData) { error in
+                    if let error = error {
+                        print("❌ Error saving category to Firestore: \(error)")
+                    } else {
+                        print("✅ Successfully saved category to Firestore")
+                    }
+                }
+        } else {
+            print("⚠️ No authenticated user, skipping Firestore save")
+        }
+    }
+    
+    // Add method to fetch categories from Firestore
+    func syncCategoriesFromFirestore() {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            print("⚠️ No user ID available for syncing")
+            return
+        }
+        
+        print("🔄 Starting Firestore sync for user: \(userId)")
+        
+        // Reset sync state
+        categoriesLoaded = false
+        
+        // Create a background context for all operations
+        let context = container.newBackgroundContext()
+        context.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        
+        // Fetch category groups
+        db.collection("users").document(userId)
+            .collection("categoryGroups")
+            .getDocuments { [weak self] snapshot, error in
+                guard let self = self else { return }
+                
+                if let error = error {
+                    print("❌ Error fetching category groups: \(error)")
+                    return
+                }
+                
+                guard let documents = snapshot?.documents else {
+                    print("⚠️ No category groups found")
+                    return
+                }
+                
+                print("📦 Found \(documents.count) category groups")
+                
+                // Perform all operations in the background context
+                context.performAndWait {
+                    // First, fetch the current user in this context
+                    let userRequest = CDUser.fetchRequest()
+                    userRequest.predicate = NSPredicate(format: "email == %@", self.getCurrentUser()?.email ?? "")
+                    guard let owner = try? context.fetch(userRequest).first else {
+                        print("❌ Could not find user in context")
+                        return
+                    }
+                    
+                    // Create a mapping of group IDs to Core Data objects
+                    var groupMapping: [String: CDCategoryGroup] = [:]
+                    
+                    do {
+                        // Process all groups
+                        for document in documents {
+                            let data = document.data()
+                            print("📝 Processing group: \(data)")
+                            
+                            guard let idString = data["id"] as? String,
+                                  let id = UUID(uuidString: idString),
+                                  let name = data["name"] as? String else {
+                                print("❌ Invalid group data: \(data)")
+                                continue
+                            }
+                            
+                            // Try to find existing group or create new one
+                            let groupRequest = CDCategoryGroup.fetchRequest()
+                            groupRequest.predicate = NSPredicate(format: "id == %@ AND owner == %@", id as CVarArg, owner)
+                            let group = try context.fetch(groupRequest).first ?? CDCategoryGroup(context: context)
+                            
+                            // Update group properties
+                            group.id = id
+                            group.name = name
+                            group.emoji = data["emoji"] as? String
+                            group.order = Int16(data["order"] as? Int ?? 0)
+                            group.owner = owner
+                            
+                            // Store in mapping
+                            groupMapping[idString] = group
+                            
+                            print("✅ Processed group: \(name)")
+                        }
+                        
+                        // Save context after processing groups
+                        try context.save()
+                        print("💾 Saved category groups to Core Data")
+                        
+                        // After groups are saved, fetch categories
+                        self.fetchCategoriesFromFirestore(userId: userId, groupMapping: groupMapping, context: context)
+                    } catch {
+                        print("❌ Error saving category groups: \(error)")
+                        context.rollback()
+                    }
+                }
+            }
+    }
+    
+    private func fetchCategoriesFromFirestore(userId: String, groupMapping: [String: CDCategoryGroup], context: NSManagedObjectContext) {
+        print("🔄 Starting category fetch for user: \(userId)")
+        
+        db.collection("users").document(userId)
+            .collection("categories")
+            .getDocuments { [weak self] snapshot, error in
+                guard let self = self else { return }
+                
+                if let error = error {
+                    print("❌ Error fetching categories: \(error)")
+                    return
+                }
+                
+                guard let documents = snapshot?.documents else {
+                    print("⚠️ No categories found")
+                    return
+                }
+                
+                print("📦 Found \(documents.count) categories")
+                
+                // Perform all operations in the background context
+                context.performAndWait {
+                    do {
+                        for document in documents {
+                            let data = document.data()
+                            print("📝 Processing category: \(data)")
+                            
+                            guard let idString = data["id"] as? String,
+                                  let id = UUID(uuidString: idString),
+                                  let name = data["name"] as? String,
+                                  let groupIdString = data["groupId"] as? String,
+                                  let group = groupMapping[groupIdString] else {
+                                print("❌ Invalid category data or missing group: \(data)")
+                                continue
+                            }
+                            
+                            // Try to find existing category or create new one
+                            let categoryRequest = CDCategory.fetchRequest()
+                            categoryRequest.predicate = NSPredicate(format: "id == %@ AND owner == %@", id as CVarArg, group.owner!)
+                            let category = try context.fetch(categoryRequest).first ?? CDCategory(context: context)
+                            
+                            // Update category properties
+                            category.id = id
+                            category.name = name
+                            category.emoji = data["emoji"] as? String
+                            category.allocated = data["allocated"] as? Double ?? 0
+                            category.spent = data["spent"] as? Double ?? 0
+                            category.group = group
+                            category.owner = group.owner
+                            
+                            // Handle target if present
+                            if let targetType = data["targetType"] as? String {
+                                switch targetType {
+                                case "monthly", "weekly":
+                                    if let amount = data["targetAmount"] as? Double {
+                                        category.targetType = targetType
+                                        category.targetAmount = amount
+                                    }
+                                case "byDate":
+                                    if let amount = data["targetAmount"] as? Double,
+                                       let date = data["targetDate"] as? Date {
+                                        category.targetType = targetType
+                                        category.targetAmount = amount
+                                        category.targetDate = date
+                                    }
+                                default:
+                                    break
+                                }
+                            }
+                            
+                            print("✅ Processed category: \(name) in group: \(group.name ?? "")")
+                        }
+                        
+                        // Save all changes
+                        try context.save()
+                        print("💾 Saved all categories to Core Data")
+                        
+                        // Update UI state on main thread
+                        DispatchQueue.main.async {
+                            self.categoriesLoaded = true
+                            self.lastSyncTimestamp = Date()
+                            self.objectWillChange.send()
+                            
+                            // Force a UI refresh by reloading data in the main context
+                            self.container.viewContext.refreshAllObjects()
+                            
+                            // Post notification for views to refresh
+                            NotificationCenter.default.post(
+                                name: NSNotification.Name("RefreshCategoriesView"),
+                                object: nil
+                            )
+                        }
+                    } catch {
+                        print("❌ Error saving categories: \(error)")
+                        context.rollback()
+                    }
+                }
+            }
     }
     
     // MARK: - Transaction Methods
@@ -416,22 +706,37 @@ class DataController: ObservableObject {
         addTransaction(transaction)
     }
     
+    // MARK: - User Management
+    
     func getCurrentUser() -> CDUser? {
-        // Return cached user if available
         if let cached = currentUserCache {
             return cached
         }
         
-        guard let userId = UserDefaults.standard.string(forKey: "currentUserId") else { return nil }
-        let request = CDUser.fetchRequest()
-        request.predicate = NSPredicate(format: "id == %@", userId)
+        let request: NSFetchRequest<CDUser> = CDUser.fetchRequest()
+        request.fetchLimit = 1
         
-        // Cache the result before returning
-        currentUserCache = try? container.viewContext.fetch(request).first
-        return currentUserCache
+        do {
+            let users = try container.viewContext.fetch(request)
+            currentUserCache = users.first
+            return users.first
+        } catch {
+            print("Error fetching current user: \(error)")
+            return nil
+        }
     }
     
-    // Clear cache when user changes
+    func createUser(id: UUID, email: String) -> CDUser {
+        let user = CDUser(context: container.viewContext)
+        user.id = id
+        user.email = email
+        user.createdAt = Date()
+        
+        save()
+        currentUserCache = user
+        return user
+    }
+    
     func clearCache() {
         currentUserCache = nil
         accountsCache = nil
@@ -546,5 +851,40 @@ class DataController: ObservableObject {
             container.viewContext.delete(group)
             save()
         }
+    }
+    
+    func clearUserData() {
+        let context = container.viewContext
+        
+        // Delete all user-related data
+        let requests = [
+            NSFetchRequest<NSFetchRequestResult>(entityName: "CDCategoryGroup"),
+            NSFetchRequest<NSFetchRequestResult>(entityName: "CDCategory"),
+            NSFetchRequest<NSFetchRequestResult>(entityName: "CDAccount"),
+            NSFetchRequest<NSFetchRequestResult>(entityName: "CDTransaction"),
+            NSFetchRequest<NSFetchRequestResult>(entityName: "CDTemplate")
+        ]
+        
+        for request in requests {
+            if let currentUser = getCurrentUser() {
+                request.predicate = NSPredicate(format: "owner == %@", currentUser)
+            }
+            
+            let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)
+            deleteRequest.resultType = .resultTypeObjectIDs
+            
+            do {
+                let result = try context.execute(deleteRequest) as? NSBatchDeleteResult
+                let changes: [AnyHashable: Any] = [
+                    NSDeletedObjectsKey: result?.result as? [NSManagedObjectID] ?? []
+                ]
+                NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [context])
+            } catch {
+                print("Error clearing user data: \(error)")
+            }
+        }
+        
+        clearCache()
+        save()
     }
 } 

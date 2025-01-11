@@ -13,6 +13,11 @@ class SetupCoordinator: ObservableObject {
     @Published var setupGroups: [SetupGroup] = []
     @Published var selectedCategories: Set<UUID> = []
     @Published var isSetupComplete = false
+    private var authManager: AuthenticationManager?
+    
+    init(authManager: AuthenticationManager? = nil) {
+        self.authManager = authManager
+    }
     
     var currentGroup: SetupGroup? {
         guard currentGroupIndex < setupGroups.count else { return nil }
@@ -60,5 +65,22 @@ class SetupCoordinator: ObservableObject {
         setupGroups = []
         selectedCategories = []
         isSetupComplete = false
+    }
+    
+    func completeSetup() {
+        withAnimation {
+            isSetupComplete = true
+            authManager?.completeSetup()
+        }
+    }
+    
+    func markSetupComplete() {
+        withAnimation {
+            isSetupComplete = true
+        }
+    }
+    
+    func setAuthManager(_ auth: AuthenticationManager) {
+        self.authManager = auth
     }
 } 

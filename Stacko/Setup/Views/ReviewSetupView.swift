@@ -63,7 +63,7 @@ struct ReviewSetupView: View {
     private func saveSetup() {
         // Save all groups and categories to Core Data
         for group in coordinator.setupGroups {
-            let createdGroup = budget.addCategoryGroup(name: group.name, emoji: nil)
+            guard let createdGroup = budget.addCategoryGroup(name: group.name, emoji: nil) else { continue }
             
             // Only save selected categories
             for category in group.categories where coordinator.selectedCategories.contains(category.id) {
@@ -76,6 +76,7 @@ struct ReviewSetupView: View {
             }
         }
         
-        coordinator.isSetupComplete = true
+        // Call completeSetup to update both local state and Firestore
+        coordinator.completeSetup()
     }
 } 

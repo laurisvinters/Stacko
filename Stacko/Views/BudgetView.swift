@@ -5,6 +5,7 @@ struct BudgetView: View {
     @State private var selectedCategory: Category?
     @State private var showingAddCategory = false
     @State private var showingAddGroup = false
+    @State private var forceRefresh = false
     
     // Filter out Income group
     private var nonIncomeGroups: [CategoryGroup] {
@@ -67,6 +68,11 @@ struct BudgetView: View {
         }
         .sheet(isPresented: $showingAddGroup) {
             AddGroupSheet(budget: budget)
+        }
+        .id(forceRefresh)
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshCategoriesView"))) { _ in
+            forceRefresh.toggle()
+            budget.reload()
         }
     }
     

@@ -58,21 +58,18 @@ class Budget: ObservableObject {
     }
     
     @discardableResult
-    func addCategoryGroup(name: String, emoji: String?) -> CategoryGroup {
-        let group = CDCategoryGroup(context: dataController.container.viewContext)
-        group.id = UUID()
-        group.name = name
-        group.emoji = emoji
-        group.owner = dataController.getCurrentUser()
-        group.order = Int16(categoryGroups.count)
+    func addCategoryGroup(name: String, emoji: String?) -> CategoryGroup? {
+        guard let cdGroup = dataController.addCategoryGroup(name: name, emoji: emoji),
+              let id = cdGroup.id else {
+            return nil
+        }
         
         dataController.save()
         loadData()
         
-        // Create a new CategoryGroup with safe unwrapping
         return CategoryGroup(
-            id: group.id ?? UUID(), // Provide a fallback UUID
-            name: name, // We already have this string
+            id: id,
+            name: name,
             emoji: emoji,
             categories: []
         )

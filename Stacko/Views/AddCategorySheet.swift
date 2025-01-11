@@ -66,7 +66,7 @@ struct AddCategorySheet: View {
                     
                     if isShowingCustomEmoji {
                         TextField("Enter custom emoji", text: $customEmoji)
-                            .onChange(of: customEmoji) { newValue in
+                            .onChange(of: customEmoji) { oldValue, newValue in
                                 if !newValue.isEmpty {
                                     selectedEmoji = String(newValue.prefix(2)) // Take only first emoji
                                 }
