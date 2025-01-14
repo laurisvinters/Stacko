@@ -4,6 +4,7 @@ enum SetupStep {
     case groups
     case categories
     case targets
+    case accounts
     case review
 }
 
@@ -44,8 +45,25 @@ class SetupCoordinator: ObservableObject {
             currentGroupIndex = 0
         case .targets:
             currentStep = .categories
-        case .review:
+        case .accounts:
             currentStep = .targets
+        case .review:
+            currentStep = .accounts
+        }
+    }
+    
+    func moveToNextStep() {
+        switch currentStep {
+        case .groups:
+            currentStep = .categories
+        case .categories:
+            currentStep = .targets
+        case .targets:
+            currentStep = .accounts
+        case .accounts:
+            currentStep = .review
+        case .review:
+            isSetupComplete = true
         }
     }
     

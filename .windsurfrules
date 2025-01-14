@@ -1,0 +1,85 @@
+1. **Primary Programming Language**: Swift
+2. **Swift Version**: Likely Swift 5.x (based on SwiftUI usage)
+3. **UI Framework**: SwiftUI
+4. **Target Platforms**: 
+   - iOS
+   - macOS (potentially)
+5. **Development Environment**: Xcode
+6. **Project Type**: iOS/macOS Application
+7. **Architecture**: 
+   - Modular (evident from directory structure with separate Models, Views, Managers)
+   - MVVM (Model-View-ViewModel) design pattern
+8. **Key Components**:
+   - [ContentView.swift](cci:7://file:///Users/laurisvinters/Documents/Stacko/Stacko/ContentView.swift:0:0-0:0): Main app view
+   - [StackoApp.swift](cci:7://file:///Users/laurisvinters/Documents/Stacko/Stacko/StackoApp.swift:0:0-0:0): App entry point
+
+# Stacko Budgeting App - Core Principles and Design Guidelines
+
+Stacko is a budgeting app that empowers users to manage their finances effectively. This app is unfinished, but it is striving to follow these core principles and design guidelines:
+
+## 1. Financial Tracking and Categorization
+- Implement comprehensive expense tracking across multiple categories
+- Allow dynamic creation and customization of spending categories
+- Support multiple currency and international financial tracking
+- Provide real-time spending updates and visualizations
+
+## 2. AI-Powered Financial Insights
+### Recommendation Engine
+- Generate personalized spending recommendations
+- Analyze historical spending patterns
+- Identify potential savings opportunities
+- Provide actionable financial advice
+
+### AI Analysis Features
+- Detect unusual spending patterns
+- Predict future expenses based on historical data
+- Suggest budget reallocation strategies
+- Highlight potential areas of financial optimization
+
+## 3. Spending Reduction Strategies
+- Implement progressive spending reduction mechanisms
+- Create comparative analysis of month-to-month spending
+- Gamify financial discipline with achievement and goal-tracking systems
+- Provide motivational insights and progress tracking
+
+## 4. User Privacy and Data Security
+- Ensure end-to-end encryption of financial data
+- Implement secure authentication mechanisms
+- Allow granular control over data sharing
+- Comply with international financial data protection regulations
+
+## 5. User Experience Principles
+- Intuitive and clean user interface
+- Minimal data entry friction
+- Clear and engaging data visualizations
+- Responsive design across multiple device types
+
+## 6. Machine Learning Model Requirements
+- Continuously improve recommendation accuracy
+- Support personalized learning for individual user behaviors
+- Minimize bias in financial recommendations
+- Provide transparent explanation of AI-generated insights
+
+## 7. Ethical AI Guidelines
+- Ensure recommendations prioritize user financial health
+- Avoid predatory or manipulative financial suggestions
+- Provide balanced and objective financial advice
+- Respect user's financial autonomy and decision-making
+
+## 8. Technical Architecture
+- Modular and scalable microservices architecture
+- Support offline functionality
+- Seamless cloud synchronization
+- Low battery and resource consumption
+
+## 9. Compliance and Regulatory Considerations
+- Adhere to financial reporting standards
+- Support tax-related expense categorization
+- Provide export capabilities for financial records
+- Maintain audit trail of financial transactions
+
+## 10. Future Expansion Considerations
+- Support investment tracking and recommendations
+- Integrate with banking and financial institutions
+- Develop multi-platform support (iOS, macOS, web)
+- Create API for third-party financial tool integration

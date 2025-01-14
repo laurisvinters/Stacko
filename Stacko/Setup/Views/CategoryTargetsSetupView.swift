@@ -83,7 +83,7 @@ struct CategoryTargetsSetupView: View {
             
             ToolbarItem(placement: .primaryAction) {
                 Button("Next") {
-                    coordinator.currentStep = .review
+                    coordinator.currentStep = .accounts
                 }
             }
         }

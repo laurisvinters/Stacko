@@ -13,6 +13,8 @@ struct SetupContainerView: View {
                     GroupSetupView(budget: budget, coordinator: coordinator, authManager: authManager)
                 case .categories:
                     CategoriesSetupView(budget: budget, coordinator: coordinator)
+                case .accounts:
+                    AccountsSetupView(coordinator: coordinator, budget: budget)
                 case .targets:
                     CategoryTargetsSetupView(budget: budget, coordinator: coordinator)
                 case .review:
