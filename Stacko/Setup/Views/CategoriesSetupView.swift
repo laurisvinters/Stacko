@@ -138,18 +138,6 @@ struct CategoriesSetupView: View {
     }
     
     private func toggleCategory(_ id: UUID) {
-        // For Income group, only allow selecting categories, not deselecting
-        if let currentGroup = coordinator.currentGroup,
-           currentGroup.name == "Income" {
-            // If not selected, allow selecting
-            if !coordinator.selectedCategories.contains(id) {
-                coordinator.selectedCategories.insert(id)
-            }
-            // If already selected, don't allow deselecting
-            return
-        }
-        
-        // For other groups, allow normal toggle behavior
         if coordinator.selectedCategories.contains(id) {
             coordinator.selectedCategories.remove(id)
         } else {
@@ -376,4 +364,4 @@ struct EditCategorySheet: View {
         budget: Budget(dataController: DataController()),
         coordinator: SetupCoordinator()
     )
-} 
+}

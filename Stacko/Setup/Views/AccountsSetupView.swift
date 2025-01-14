@@ -63,20 +63,28 @@ struct AccountsSetupView: View {
     
     private func accountRow(_ account: Account) -> some View {
         HStack {
-            HStack(spacing: 8) {
-                Text(account.icon.isEmpty ? "💰" : account.icon)
-                    .font(.title2)
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(account.name)
-                        .font(.headline)
-                    Text(account.type.rawValue)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+            Text(account.icon.isEmpty ? "💰" : account.icon)
+                .font(.title2)
+            
+            VStack(alignment: .leading) {
+                Text(account.name)
+                    .font(.headline)
+                Text(account.type.rawValue)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
             
             Spacer()
+            
+            VStack(alignment: .trailing) {
+                Text(account.balance, format: .currency(code: "USD"))
+                    .foregroundColor(account.balance >= 0 ? .primary : .red)
+                if account.balance != account.clearedBalance {
+                    Text(account.clearedBalance, format: .currency(code: "USD"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .contentShape(Rectangle())
         .frame(height: 44)

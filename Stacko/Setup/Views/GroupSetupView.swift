@@ -153,7 +153,7 @@ struct GroupSetupView: View {
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
-                        .padding(.leading, 32)
+                        .padding(.leading, 50)
                         .padding(.bottom, 8)
                     }
                     .listRowInsets(EdgeInsets(top: 0, leading: 8, bottom: 0, trailing: 8))
