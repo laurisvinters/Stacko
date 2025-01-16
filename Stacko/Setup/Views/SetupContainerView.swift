@@ -9,6 +9,8 @@ struct SetupContainerView: View {
         NavigationStack {
             Group {
                 switch coordinator.currentStep {
+                case .modeSelection:
+                    SetupModeSelectionView(coordinator: coordinator)
                 case .groups:
                     GroupSetupView(budget: budget, coordinator: coordinator, authManager: authManager)
                 case .categories:

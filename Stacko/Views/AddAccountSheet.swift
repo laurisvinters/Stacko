@@ -7,7 +7,6 @@ struct AddAccountSheet: View {
     @State private var name = ""
     @State private var type = Account.AccountType.cash
     @State private var currentBalance = ""
-    @State private var keyboardHeight: CGFloat = 0
     
     var body: some View {
         NavigationStack {
@@ -26,6 +25,8 @@ struct AddAccountSheet: View {
             }
             .navigationTitle("New Account")
             .navigationBarTitleDisplayMode(.inline)
+            .scrollDismissesKeyboard(.interactively)
+            .ignoresSafeArea(.keyboard, edges: .bottom)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -36,14 +37,6 @@ struct AddAccountSheet: View {
                         .disabled(name.isEmpty || currentBalance.isEmpty)
                 }
             }
-            .ignoresSafeArea(.keyboard)
-            .onAppear {
-                setupKeyboardNotifications()
-            }
-            .onDisappear {
-                removeKeyboardNotifications()
-            }
-            .padding(.bottom, keyboardHeight)
         }
     }
     
@@ -85,29 +78,5 @@ struct AddAccountSheet: View {
         }
         
         dismiss()
-    }
-    
-    private func setupKeyboardNotifications() {
-        NotificationCenter.default.addObserver(
-            forName: UIResponder.keyboardWillShowNotification,
-            object: nil,
-            queue: .main
-        ) { notification in
-            if let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
-                keyboardHeight = keyboardFrame.height
-            }
-        }
-        
-        NotificationCenter.default.addObserver(
-            forName: UIResponder.keyboardWillHideNotification,
-            object: nil,
-            queue: .main
-        ) { _ in
-            keyboardHeight = 0
-        }
-    }
-    
-    private func removeKeyboardNotifications() {
-        NotificationCenter.default.removeObserver(self)
     }
 }

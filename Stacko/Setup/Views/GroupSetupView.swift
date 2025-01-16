@@ -10,7 +10,7 @@ struct GroupSetupView: View {
     @State private var showingCancelAlert = false
     
     // Updated suggested groups with descriptions and example categories
-    private static let suggestedGroups = [
+    public static let suggestedGroups = [
         SetupGroup(name: "Housing", categories: [
             SetupCategory(name: "Rent/Mortgage", emoji: "🏠"),
             SetupCategory(name: "Property Tax", emoji: "📋"),
@@ -124,6 +124,12 @@ struct GroupSetupView: View {
         ], description: "Track all sources of income",
            examples: "Salary, investments, side jobs")
     ]
+    
+    // Add a static method to get recommended groups
+    public static func getRecommendedGroups() -> [SetupGroup] {
+        // Exclude the Income group if it exists
+        return suggestedGroups.filter { $0.name != "Income" }
+    }
     
     var body: some View {
         List {
