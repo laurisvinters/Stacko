@@ -13,7 +13,7 @@ struct CategoryTargetsSetupView: View {
     var body: some View {
         List {
             Section {
-                Text("Set spending targets for your categories (optional)")
+                Text("Set spending targets for your categories. It is advised to set a target for each category that you want to track. Setting up targets is optional.")
                     .foregroundStyle(.secondary)
             }
             
@@ -83,7 +83,7 @@ struct CategoryTargetsSetupView: View {
             
             ToolbarItem(placement: .primaryAction) {
                 Button("Next") {
-                    coordinator.currentStep = .accounts
+                    coordinator.moveToNextStep()
                 }
             }
         }

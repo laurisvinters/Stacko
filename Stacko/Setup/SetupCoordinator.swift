@@ -145,8 +145,8 @@ class SetupCoordinator: ObservableObject {
                 }
             }
             
-            // Skip directly to accounts setup
-            currentStep = .accounts
+            // In fast mode, start with targets setup
+            currentStep = .targets
         }
     }
     
@@ -180,9 +180,17 @@ class SetupCoordinator: ObservableObject {
             currentStep = .groups
             currentGroupIndex = 0
         case .targets:
-            currentStep = .categories
+            if setupMode == .fast {
+                currentStep = .modeSelection
+            } else {
+                currentStep = .categories
+            }
         case .accounts:
-            currentStep = .targets
+            if setupMode == .fast {
+                currentStep = .targets
+            } else {
+                currentStep = .targets
+            }
         case .review:
             currentStep = .accounts
         }

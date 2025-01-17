@@ -10,7 +10,7 @@ struct SetupContainerView: View {
             Group {
                 switch coordinator.currentStep {
                 case .modeSelection:
-                    SetupModeSelectionView(coordinator: coordinator)
+                    SetupModeSelectionView(coordinator: coordinator, authManager: authManager)
                 case .groups:
                     GroupSetupView(budget: budget, coordinator: coordinator, authManager: authManager)
                 case .categories:

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SetupModeSelectionView: View {
     @ObservedObject var coordinator: SetupCoordinator
+    @ObservedObject var authManager: AuthenticationManager
     
     var body: some View {
         VStack(spacing: 24) {
@@ -26,6 +27,14 @@ struct SetupModeSelectionView: View {
                     color: .green
                 ) {
                     coordinator.setSetupMode(.fast)
+                }
+                
+                setupModeButton(
+                    title: "Back",
+                    subtitle: "Return to sign in",
+                    color: .red
+                ) {
+                    authManager.signOut()
                 }
             }
             .padding(.horizontal)
