@@ -11,11 +11,30 @@ class Budget: ObservableObject {
     @Published private(set) var templates: [TransactionTemplate] = []
     @Published private(set) var isSetupComplete: Bool = false
     
+    private var listeners: [ListenerRegistration] = []
+    
     init() {
         setupListeners()
     }
     
-    private func setupListeners() {
+    func reset() {
+        // Remove all listeners
+        listeners.forEach { $0.remove() }
+        listeners.removeAll()
+        
+        // Clear all data
+        accounts = []
+        categoryGroups = []
+        transactions = []
+        templates = []
+        isSetupComplete = false
+    }
+    
+    func setupListeners() {
+        // Remove any existing listeners
+        listeners.forEach { $0.remove() }
+        listeners.removeAll()
+        
         guard let userId = Auth.auth().currentUser?.uid else {
             print("Budget: No user ID available for listeners")
             return
@@ -24,7 +43,7 @@ class Budget: ObservableObject {
         print("Budget: Setting up listeners for user \(userId)")
         
         // Listen for user settings
-        db.collection("users").document(userId)
+        let settingsListener = db.collection("users").document(userId)
             .addSnapshotListener { [weak self] snapshot, error in
                 if let error = error {
                     print("Budget: Error fetching user settings: \(error.localizedDescription)")
@@ -36,9 +55,10 @@ class Budget: ObservableObject {
                     print("Budget: Setup completion state: \(self?.isSetupComplete ?? false)")
                 }
             }
+        listeners.append(settingsListener)
             
         // Listen for accounts changes
-        db.collection("users").document(userId).collection("accounts")
+        let accountsListener = db.collection("users").document(userId).collection("accounts")
             .addSnapshotListener { [weak self] snapshot, error in
                 if let error = error {
                     print("Budget: Error fetching accounts: \(error.localizedDescription)")
@@ -60,9 +80,10 @@ class Budget: ObservableObject {
                 }
                 print("Budget: Updated accounts array with \(self?.accounts.count ?? 0) accounts")
             }
+        listeners.append(accountsListener)
         
         // Listen for category groups changes
-        db.collection("users").document(userId).collection("categoryGroups")
+        let groupsListener = db.collection("users").document(userId).collection("categoryGroups")
             .addSnapshotListener { [weak self] snapshot, error in
                 if let error = error {
                     print("Budget: Error fetching category groups: \(error.localizedDescription)")
@@ -84,12 +105,18 @@ class Budget: ObservableObject {
                 }
                 print("Budget: Updated categoryGroups array with \(self?.categoryGroups.count ?? 0) groups")
             }
+        listeners.append(groupsListener)
             
         // Listen for transactions changes
-        db.collection("users").document(userId).collection("transactions")
+        let transactionsListener = db.collection("users").document(userId).collection("transactions")
             .addSnapshotListener { [weak self] snapshot, error in
+                if let error = error {
+                    print("Budget: Error fetching transactions: \(error.localizedDescription)")
+                    return
+                }
+                
                 guard let documents = snapshot?.documents else {
-                    print("Error fetching transactions: \(error?.localizedDescription ?? "Unknown error")")
+                    print("Budget: No transaction documents found")
                     return
                 }
                 
@@ -97,12 +124,18 @@ class Budget: ObservableObject {
                     Transaction.fromFirestore(document.data())
                 }
             }
+        listeners.append(transactionsListener)
             
         // Listen for templates changes
-        db.collection("users").document(userId).collection("templates")
+        let templatesListener = db.collection("users").document(userId).collection("templates")
             .addSnapshotListener { [weak self] snapshot, error in
+                if let error = error {
+                    print("Budget: Error fetching templates: \(error.localizedDescription)")
+                    return
+                }
+                
                 guard let documents = snapshot?.documents else {
-                    print("Error fetching templates: \(error?.localizedDescription ?? "Unknown error")")
+                    print("Budget: No template documents found")
                     return
                 }
                 
@@ -110,6 +143,7 @@ class Budget: ObservableObject {
                     TransactionTemplate.fromFirestore(document.data())
                 }
             }
+        listeners.append(templatesListener)
     }
     
     func completeSetup() {

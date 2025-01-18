@@ -16,8 +16,10 @@ class AuthenticationManager: ObservableObject {
         Auth.auth().addStateDidChangeListener { [weak self] _, firebaseUser in
             if let firebaseUser = firebaseUser {
                 self?.handleFirebaseUser(firebaseUser)
+                self?.budget.setupListeners()
             } else {
                 self?.currentUser = nil
+                self?.budget.reset()
             }
         }
     }
@@ -53,5 +55,7 @@ class AuthenticationManager: ObservableObject {
     func signOut() throws {
         try Auth.auth().signOut()
         currentUser = nil
+        budget.reset()
+        setupCoordinator.isSetupComplete = false
     }
 } 
