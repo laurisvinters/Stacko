@@ -361,7 +361,7 @@ struct EditCategorySheet: View {
 // Preview provider
 #Preview {
     CategoriesSetupView(
-        budget: Budget(dataController: DataController()),
+        budget: Budget(),
         coordinator: SetupCoordinator()
     )
 }

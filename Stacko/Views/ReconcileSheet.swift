@@ -93,7 +93,7 @@ struct ReconcileSheet: View {
     
     private func reconcile() {
         guard let targetBalance = Double(statementBalance) else { return }
-        budget.reconcileAccount(id: account.id, balance: targetBalance, date: statementDate)
+        budget.reconcileAccount(account.id, clearedBalance: targetBalance)
         dismiss()
     }
 } 

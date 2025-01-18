@@ -237,7 +237,7 @@ struct TransactionListRow: View {
 
 #Preview {
     CategoryDetailSheet(
-        budget: Budget(dataController: DataController()),
+        budget: Budget(),
         category: Category(
             id: UUID(),
             name: "Test Category",

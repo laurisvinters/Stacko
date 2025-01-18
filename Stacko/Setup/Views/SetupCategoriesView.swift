@@ -105,7 +105,7 @@ struct SetupCategoriesView: View {
 #Preview {
     NavigationStack {
         SetupCategoriesView(
-            budget: Budget(dataController: DataController()),
+            budget: Budget(),
             coordinator: SetupCoordinator()
         )
     }

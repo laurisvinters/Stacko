@@ -56,13 +56,16 @@ struct MainView: View {
 }
 
 #Preview {
+    let budget = Budget()
+    let coordinator = SetupCoordinator()
+    let authManager = AuthenticationManager(
+        budget: budget,
+        setupCoordinator: coordinator
+    )
+    
     MainView(
-        authManager: AuthenticationManager(
-            dataController: DataController(),
-            budget: Budget(dataController: DataController()),
-            setupCoordinator: SetupCoordinator()
-        ),
-        budget: Budget(dataController: DataController()),
-        setupCoordinator: SetupCoordinator()
+        authManager: authManager,
+        budget: budget,
+        setupCoordinator: coordinator
     )
 } 

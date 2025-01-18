@@ -8,6 +8,8 @@ struct GroupSetupView: View {
     @State private var showingAddGroup = false
     @State private var customGroups: [SetupGroup] = []
     @State private var showingCancelAlert = false
+    @State private var showingError = false
+    @State private var errorMessage = ""
     
     // Updated suggested groups with descriptions and example categories
     public static let suggestedGroups = [
@@ -221,10 +223,20 @@ struct GroupSetupView: View {
             Button("Continue Setup", role: .cancel) { }
             Button("Cancel Setup", role: .destructive) {
                 coordinator.cancelSetup()
-                authManager.signOut()
+                do {
+                    try authManager.signOut()
+                } catch {
+                    errorMessage = error.localizedDescription
+                    showingError = true
+                }
             }
         } message: {
             Text("Are you sure you want to cancel the setup process? All progress will be lost.")
+        }
+        .alert("Error", isPresented: $showingError) {
+            Button("OK") { }
+        } message: {
+            Text(errorMessage)
         }
         .sheet(isPresented: $showingAddGroup) {
             AddGroupSheet(budget: budget) { newGroup in
@@ -299,16 +311,14 @@ struct GroupRow: View {
 }
 
 #Preview {
-    let dataController = DataController()
-    let budget = Budget(dataController: dataController)
+    let budget = Budget()
     let coordinator = SetupCoordinator()
     let authManager = AuthenticationManager(
-        dataController: dataController,
         budget: budget,
         setupCoordinator: coordinator
     )
     
-    return NavigationStack {
+    NavigationStack {
         GroupSetupView(
             budget: budget,
             coordinator: coordinator,

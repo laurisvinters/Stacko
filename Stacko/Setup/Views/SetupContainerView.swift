@@ -28,16 +28,14 @@ struct SetupContainerView: View {
 }
 
 #Preview {
-    let dataController = DataController()
-    let budget = Budget(dataController: dataController)
+    let budget = Budget()
     let coordinator = SetupCoordinator()
     let authManager = AuthenticationManager(
-        dataController: dataController,
         budget: budget,
         setupCoordinator: coordinator
     )
     
-    return SetupContainerView(
+    SetupContainerView(
         budget: budget,
         coordinator: coordinator,
         authManager: authManager

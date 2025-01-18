@@ -1,119 +1,208 @@
 import Foundation
 import SwiftUI
-import CoreData
+import FirebaseFirestore
+import FirebaseAuth
 
 class Budget: ObservableObject {
-    let dataController: DataController
-    private var reloadTask: Task<Void, Never>?
-    private var lastReloadTime: Date?
-    private let minimumReloadInterval: TimeInterval = 0.5 // Minimum time between reloads
-    
+    private let db = Firestore.firestore()
     @Published private(set) var accounts: [Account] = []
     @Published private(set) var categoryGroups: [CategoryGroup] = []
     @Published private(set) var transactions: [Transaction] = []
     @Published private(set) var templates: [TransactionTemplate] = []
     
-    init(dataController: DataController) {
-        self.dataController = dataController
-        loadData()
+    init() {
+        setupListeners()
     }
     
-    func reload() {
-        // Check if enough time has passed since last reload
-        if let lastReload = lastReloadTime,
-           Date().timeIntervalSince(lastReload) < minimumReloadInterval {
-            return
-        }
+    private func setupListeners() {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
         
-        // Cancel any pending reload
-        reloadTask?.cancel()
-        
-        // Create new reload task with delay
-        reloadTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 100_000_000)
-            if !Task.isCancelled {
-                loadData()
-                lastReloadTime = Date()
+        // Listen for accounts changes
+        db.collection("users").document(userId).collection("accounts")
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let documents = snapshot?.documents else {
+                    print("Error fetching accounts: \(error?.localizedDescription ?? "Unknown error")")
+                    return
+                }
+                
+                self?.accounts = documents.compactMap { document in
+                    Account.fromFirestore(document.data())
+                }
             }
-        }
-    }
-    
-    private func loadData() {
-        accounts = dataController.fetchAllAccounts()
-        categoryGroups = dataController.fetchAllCategoryGroups()
-        transactions = dataController.fetchAllTransactions()
-        templates = dataController.fetchAllTemplates()
-    }
-    
-    // MARK: - Public Methods
-    
-    func addTransaction(_ transaction: Transaction) {
-        dataController.addTransaction(transaction)
-        loadData()
+        
+        // Listen for category groups changes
+        db.collection("users").document(userId).collection("categoryGroups")
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let documents = snapshot?.documents else {
+                    print("Error fetching category groups: \(error?.localizedDescription ?? "Unknown error")")
+                    return
+                }
+                
+                self?.categoryGroups = documents.compactMap { document in
+                    CategoryGroup.fromFirestore(document.data())
+                }
+            }
+            
+        // Listen for transactions changes
+        db.collection("users").document(userId).collection("transactions")
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let documents = snapshot?.documents else {
+                    print("Error fetching transactions: \(error?.localizedDescription ?? "Unknown error")")
+                    return
+                }
+                
+                self?.transactions = documents.compactMap { document in
+                    Transaction.fromFirestore(document.data())
+                }
+            }
+            
+        // Listen for templates changes
+        db.collection("users").document(userId).collection("templates")
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let documents = snapshot?.documents else {
+                    print("Error fetching templates: \(error?.localizedDescription ?? "Unknown error")")
+                    return
+                }
+                
+                self?.templates = documents.compactMap { document in
+                    TransactionTemplate.fromFirestore(document.data())
+                }
+            }
     }
     
     func addAccount(name: String, type: Account.AccountType, category: Account.AccountCategory = .personal, icon: String, balance: Double = 0) {
-        dataController.addAccount(name: name, type: type, category: category, icon: icon, balance: balance)
-        loadData()
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        
+        let account = Account(
+            id: UUID(),
+            name: name,
+            type: type,
+            category: category,
+            balance: balance,
+            clearedBalance: balance,
+            icon: icon,
+            isArchived: false
+        )
+        
+        let batch = db.batch()
+        
+        // Add account document
+        let accountRef = db.collection("users").document(userId)
+            .collection("accounts")
+            .document(account.id.uuidString)
+        batch.setData(account.toFirestore(), forDocument: accountRef)
+        
+        // Add initial balance transaction if needed
+        if balance != 0,
+           let incomeGroup = categoryGroups.first(where: { $0.name == "Income" }),
+           let initialBalanceCategory = incomeGroup.categories.first(where: { $0.name == "Initial Balance" }) ?? incomeGroup.categories.first {
+            let transaction = Transaction(
+                id: UUID(),
+                date: Date(),
+                payee: "Initial Balance",
+                categoryId: initialBalanceCategory.id,
+                amount: abs(balance),
+                note: "Initial balance for \(name)",
+                isIncome: balance > 0,
+                accountId: account.id,
+                toAccountId: nil
+            )
+            
+            let transactionRef = db.collection("users").document(userId)
+                .collection("transactions")
+                .document(transaction.id.uuidString)
+            batch.setData(transaction.toFirestore(), forDocument: transactionRef)
+        }
+        
+        // Commit the batch
+        batch.commit { error in
+            if let error = error {
+                print("Error adding account: \(error.localizedDescription)")
+            }
+        }
     }
     
     @discardableResult
     func addCategoryGroup(name: String, emoji: String?) -> CategoryGroup {
-        let group = CDCategoryGroup(context: dataController.container.viewContext)
-        group.id = UUID()
-        group.name = name
-        group.emoji = emoji
-        group.owner = dataController.getCurrentUser()
-        group.order = Int16(categoryGroups.count)
+        guard let userId = Auth.auth().currentUser?.uid else {
+            fatalError("No user logged in")
+        }
         
-        dataController.save()
-        loadData()
-        
-        // Create a new CategoryGroup with safe unwrapping
-        return CategoryGroup(
-            id: group.id ?? UUID(), // Provide a fallback UUID
-            name: name, // We already have this string
+        let group = CategoryGroup(
+            id: UUID(),
+            name: name,
             emoji: emoji,
             categories: []
         )
+        
+        db.collection("users").document(userId)
+            .collection("categoryGroups")
+            .document(group.id.uuidString)
+            .setData(group.toFirestore()) { error in
+                if let error = error {
+                    print("Error adding category group: \(error.localizedDescription)")
+                }
+            }
+        
+        return group
     }
     
     func addCategory(name: String, emoji: String?, groupId: UUID, target: Target? = nil) {
-        dataController.addCategory(name: name, emoji: emoji, groupId: groupId, target: target)
-        loadData()
-    }
-    
-    func addTemplate(_ template: TransactionTemplate) {
-        dataController.addTemplate(template)
-        loadData()
-    }
-    
-    func createTransactionFromTemplate(_ template: TransactionTemplate) {
-        dataController.createTransactionFromTemplate(template)
-        loadData()
-    }
-    
-    var availableToBudget: Double {
-        let totalBalance = accounts
-            .filter { !$0.isArchived }
-            .reduce(0.0) { sum, account in
-                if account.type == .creditCard {
-                    return sum + max(0, account.balance)
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        
+        let category = Category(
+            id: UUID(),
+            name: name,
+            emoji: emoji,
+            target: target,
+            allocated: 0,
+            spent: 0
+        )
+        
+        // Get the current group document
+        let groupRef = db.collection("users").document(userId)
+            .collection("categoryGroups")
+            .document(groupId.uuidString)
+        
+        // Update the categories array
+        groupRef.getDocument { [weak self] document, error in
+            guard let document = document,
+                  var group = CategoryGroup.fromFirestore(document.data() ?? [:]) else { return }
+            
+            group.categories.append(category)
+            
+            groupRef.setData(group.toFirestore()) { error in
+                if let error = error {
+                    print("Error updating category group: \(error.localizedDescription)")
                 }
-                return sum + account.balance
             }
-        
-        let totalAllocated = categoryGroups
-            .flatMap(\.categories)
-            .reduce(0.0) { $0 + $1.allocated }
-        
-        return totalBalance - totalAllocated
+        }
     }
     
-    var monthlyIncome: Double {
-        transactions
-            .filter { $0.isIncome }
-            .reduce(0.0) { $0 + $1.amount }
+    func deleteAccount(_ id: UUID) {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        
+        db.collection("users").document(userId)
+            .collection("accounts")
+            .document(id.uuidString)
+            .delete() { error in
+                if let error = error {
+                    print("Error deleting account: \(error.localizedDescription)")
+                }
+            }
+    }
+    
+    func addTransaction(_ transaction: Transaction) {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        
+        db.collection("users").document(userId)
+            .collection("transactions")
+            .document(transaction.id.uuidString)
+            .setData(transaction.toFirestore()) { error in
+                if let error = error {
+                    print("Error adding transaction: \(error.localizedDescription)")
+                }
+            }
     }
     
     func findCategory(byId id: UUID) -> (Int, Int)? {
@@ -125,34 +214,147 @@ class Budget: ObservableObject {
         return nil
     }
     
-    func allocateToBudget(amount: Double, categoryId: UUID) {
-        guard let (groupIndex, categoryIndex) = findCategory(byId: categoryId) else { return }
-        dataController.allocateAmount(amount, toCategoryId: categoryId)
-        loadData()
-    }
-    
     func setTarget(for categoryId: UUID, target: Target) {
-        dataController.setTarget(for: categoryId, target: target)
-        loadData()
+        guard let userId = Auth.auth().currentUser?.uid,
+              let (groupIndex, categoryIndex) = findCategory(byId: categoryId) else { return }
+        
+        var updatedGroup = categoryGroups[groupIndex]
+        updatedGroup.categories[categoryIndex].target = target
+        
+        db.collection("users").document(userId)
+            .collection("categoryGroups")
+            .document(updatedGroup.id.uuidString)
+            .setData(updatedGroup.toFirestore()) { error in
+                if let error = error {
+                    print("Error updating category target: \(error.localizedDescription)")
+                }
+            }
     }
     
-    func reconcileAccount(id: UUID, balance: Double, date: Date) {
-        dataController.reconcileAccount(id: id, balance: balance, date: date)
-        loadData()
-    }
-    
-    func createTransfer(from fromId: UUID, to toId: UUID, amount: Double, date: Date, note: String?) {
-        dataController.createTransfer(from: fromId, to: toId, amount: amount, date: date, note: note)
-        loadData()
-    }
-    
-    func deleteAccount(_ id: UUID) {
-        dataController.deleteAccount(id)
-        loadData()  // Reload data after deletion
+    func allocateToBudget(amount: Double, categoryId: UUID) {
+        guard let userId = Auth.auth().currentUser?.uid,
+              let (groupIndex, categoryIndex) = findCategory(byId: categoryId) else { return }
+        
+        var updatedGroup = categoryGroups[groupIndex]
+        updatedGroup.categories[categoryIndex].allocated += amount
+        
+        db.collection("users").document(userId)
+            .collection("categoryGroups")
+            .document(updatedGroup.id.uuidString)
+            .setData(updatedGroup.toFirestore()) { error in
+                if let error = error {
+                    print("Error updating category allocation: \(error.localizedDescription)")
+                }
+            }
     }
     
     func deleteGroup(_ id: UUID) {
-        dataController.deleteGroup(id)
-        loadData()
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        
+        db.collection("users").document(userId)
+            .collection("categoryGroups")
+            .document(id.uuidString)
+            .delete() { error in
+                if let error = error {
+                    print("Error deleting group: \(error.localizedDescription)")
+                }
+            }
+    }
+    
+    func reconcileAccount(_ id: UUID, clearedBalance: Double) {
+        guard let userId = Auth.auth().currentUser?.uid,
+              let account = accounts.first(where: { $0.id == id }) else { return }
+        
+        var updatedAccount = account
+        updatedAccount.clearedBalance = clearedBalance
+        updatedAccount.lastReconciled = Date()
+        
+        db.collection("users").document(userId)
+            .collection("accounts")
+            .document(id.uuidString)
+            .setData(updatedAccount.toFirestore()) { error in
+                if let error = error {
+                    print("Error reconciling account: \(error.localizedDescription)")
+                }
+            }
+    }
+    
+    func addTemplate(_ template: TransactionTemplate) {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        
+        db.collection("users").document(userId)
+            .collection("templates")
+            .document(template.id.uuidString)
+            .setData(template.toFirestore()) { error in
+                if let error = error {
+                    print("Error adding template: \(error.localizedDescription)")
+                }
+            }
+    }
+    
+    func createTransactionFromTemplate(_ template: TransactionTemplate, date: Date = Date()) {
+        let transaction = Transaction(
+            id: UUID(),
+            date: date,
+            payee: template.payee,
+            categoryId: template.categoryId,
+            amount: template.amount,
+            note: nil,
+            isIncome: template.isIncome,
+            accountId: accounts.first?.id ?? UUID(),
+            toAccountId: nil
+        )
+        
+        addTransaction(transaction)
+    }
+    
+    func createTransfer(fromAccountId: UUID, toAccountId: UUID, amount: Double, date: Date, note: String?) {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        
+        // Create withdrawal transaction
+        let withdrawal = Transaction(
+            id: UUID(),
+            date: date,
+            payee: "Transfer",
+            categoryId: categoryGroups.first?.categories.first?.id ?? UUID(),
+            amount: amount,
+            note: note,
+            isIncome: false,
+            accountId: fromAccountId,
+            toAccountId: toAccountId
+        )
+        
+        // Create deposit transaction
+        let deposit = Transaction(
+            id: UUID(),
+            date: date,
+            payee: "Transfer",
+            categoryId: categoryGroups.first?.categories.first?.id ?? UUID(),
+            amount: amount,
+            note: note,
+            isIncome: true,
+            accountId: toAccountId,
+            toAccountId: fromAccountId
+        )
+        
+        // Add both transactions
+        let batch = db.batch()
+        
+        let withdrawalRef = db.collection("users").document(userId)
+            .collection("transactions")
+            .document(withdrawal.id.uuidString)
+        
+        let depositRef = db.collection("users").document(userId)
+            .collection("transactions")
+            .document(deposit.id.uuidString)
+        
+        batch.setData(withdrawal.toFirestore(), forDocument: withdrawalRef)
+        batch.setData(deposit.toFirestore(), forDocument: depositRef)
+        
+        batch.commit { error in
+            if let error = error {
+                print("Error creating transfer: \(error.localizedDescription)")
+            }
+        }
     }
 } 

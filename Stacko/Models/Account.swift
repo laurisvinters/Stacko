@@ -1,7 +1,8 @@
 import Foundation
+import FirebaseFirestore
 
 struct Account: Identifiable, Codable {
-    let id: UUID
+    var id: UUID
     var name: String
     var type: AccountType
     var category: AccountCategory
@@ -57,5 +58,51 @@ struct Account: Identifiable, Codable {
         self.isArchived = isArchived
         self.notes = notes
         self.lastReconciled = lastReconciled
+    }
+    
+    // Convert to Firestore data
+    func toFirestore() -> [String: Any] {
+        return [
+            "id": id.uuidString,
+            "name": name,
+            "type": type.rawValue,
+            "category": category.rawValue,
+            "balance": balance,
+            "clearedBalance": clearedBalance,
+            "icon": icon,
+            "isArchived": isArchived,
+            "notes": notes as Any,
+            "lastReconciled": lastReconciled as Any
+        ]
+    }
+    
+    // Create from Firestore data
+    static func fromFirestore(_ data: [String: Any]) -> Account? {
+        guard 
+            let idString = data["id"] as? String,
+            let id = UUID(uuidString: idString),
+            let name = data["name"] as? String,
+            let typeRaw = data["type"] as? String,
+            let type = AccountType(rawValue: typeRaw),
+            let categoryRaw = data["category"] as? String,
+            let category = AccountCategory(rawValue: categoryRaw),
+            let balance = data["balance"] as? Double,
+            let clearedBalance = data["clearedBalance"] as? Double,
+            let icon = data["icon"] as? String,
+            let isArchived = data["isArchived"] as? Bool
+        else { return nil }
+        
+        return Account(
+            id: id,
+            name: name,
+            type: type,
+            category: category,
+            balance: balance,
+            clearedBalance: clearedBalance,
+            icon: icon,
+            isArchived: isArchived,
+            notes: data["notes"] as? String,
+            lastReconciled: (data["lastReconciled"] as? Timestamp)?.dateValue()
+        )
     }
 } 

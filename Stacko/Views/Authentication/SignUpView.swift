@@ -10,6 +10,7 @@ struct SignUpView: View {
     @State private var name = ""
     @State private var showingError = false
     @State private var errorMessage = ""
+    @State private var isLoading = false
     
     var body: some View {
         NavigationStack {
@@ -38,7 +39,7 @@ struct SignUpView: View {
                 
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create") { signUp() }
-                        .disabled(!isValid)
+                        .disabled(!isValid || isLoading)
                 }
             }
             .alert("Error", isPresented: $showingError) {
@@ -46,6 +47,7 @@ struct SignUpView: View {
             } message: {
                 Text(errorMessage)
             }
+            .disabled(isLoading)
         }
     }
     
@@ -58,12 +60,17 @@ struct SignUpView: View {
     }
     
     private func signUp() {
-        do {
-            try authManager.signUp(email: email, password: password, name: name)
-            dismiss()
-        } catch {
-            errorMessage = error.localizedDescription
-            showingError = true
+        isLoading = true
+        
+        Task {
+            do {
+                try await authManager.signUp(email: email, password: password, name: name)
+                dismiss()
+            } catch {
+                errorMessage = error.localizedDescription
+                showingError = true
+            }
+            isLoading = false
         }
     }
 } 

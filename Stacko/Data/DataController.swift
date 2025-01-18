@@ -39,12 +39,19 @@ class DataController: ObservableObject {
         if container.viewContext.hasChanges {
             do {
                 try container.viewContext.save()
+                // Invalidate caches after saving
+                invalidateCache()
             } catch {
                 print("Error saving context: \(error)")
                 // Handle the error appropriately
                 container.viewContext.rollback()
             }
         }
+    }
+    
+    private func invalidateCache() {
+        accountsCache = nil
+        accountsCacheTimestamp = nil
     }
     
     // MARK: - Fetch Methods with Conversion

@@ -10,6 +10,7 @@ struct ConvertGuestAccountView: View {
     @State private var name = ""
     @State private var showingError = false
     @State private var errorMessage = ""
+    @State private var isLoading = false
     
     var body: some View {
         NavigationStack {
@@ -43,7 +44,7 @@ struct ConvertGuestAccountView: View {
                 
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Convert") { convertAccount() }
-                        .disabled(!isValid)
+                        .disabled(!isValid || isLoading)
                 }
             }
             .alert("Error", isPresented: $showingError) {
@@ -51,6 +52,7 @@ struct ConvertGuestAccountView: View {
             } message: {
                 Text(errorMessage)
             }
+            .disabled(isLoading)
         }
     }
     
@@ -63,12 +65,17 @@ struct ConvertGuestAccountView: View {
     }
     
     private func convertAccount() {
-        do {
-            try authManager.convertGuestToFullAccount(email: email, password: password, name: name)
-            dismiss()
-        } catch {
-            errorMessage = error.localizedDescription
-            showingError = true
+        isLoading = true
+        
+        Task {
+            do {
+                try await authManager.signUp(email: email, password: password, name: name)
+                dismiss()
+            } catch {
+                errorMessage = error.localizedDescription
+                showingError = true
+            }
+            isLoading = false
         }
     }
 } 
