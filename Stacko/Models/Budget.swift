@@ -9,38 +9,80 @@ class Budget: ObservableObject {
     @Published private(set) var categoryGroups: [CategoryGroup] = []
     @Published private(set) var transactions: [Transaction] = []
     @Published private(set) var templates: [TransactionTemplate] = []
+    @Published private(set) var isSetupComplete: Bool = false
     
     init() {
         setupListeners()
     }
     
     private func setupListeners() {
-        guard let userId = Auth.auth().currentUser?.uid else { return }
+        guard let userId = Auth.auth().currentUser?.uid else {
+            print("Budget: No user ID available for listeners")
+            return
+        }
         
-        // Listen for accounts changes
-        db.collection("users").document(userId).collection("accounts")
+        print("Budget: Setting up listeners for user \(userId)")
+        
+        // Listen for user settings
+        db.collection("users").document(userId)
             .addSnapshotListener { [weak self] snapshot, error in
-                guard let documents = snapshot?.documents else {
-                    print("Error fetching accounts: \(error?.localizedDescription ?? "Unknown error")")
+                if let error = error {
+                    print("Budget: Error fetching user settings: \(error.localizedDescription)")
                     return
                 }
                 
-                self?.accounts = documents.compactMap { document in
-                    Account.fromFirestore(document.data())
+                if let data = snapshot?.data() {
+                    self?.isSetupComplete = data["isSetupComplete"] as? Bool ?? false
+                    print("Budget: Setup completion state: \(self?.isSetupComplete ?? false)")
                 }
+            }
+            
+        // Listen for accounts changes
+        db.collection("users").document(userId).collection("accounts")
+            .addSnapshotListener { [weak self] snapshot, error in
+                if let error = error {
+                    print("Budget: Error fetching accounts: \(error.localizedDescription)")
+                    return
+                }
+                
+                guard let documents = snapshot?.documents else {
+                    print("Budget: No account documents found")
+                    return
+                }
+                
+                print("Budget: Received \(documents.count) account documents")
+                self?.accounts = documents.compactMap { document in
+                    guard let account = Account.fromFirestore(document.data()) else {
+                        print("Budget: Failed to parse account document \(document.documentID)")
+                        return nil
+                    }
+                    return account
+                }
+                print("Budget: Updated accounts array with \(self?.accounts.count ?? 0) accounts")
             }
         
         // Listen for category groups changes
         db.collection("users").document(userId).collection("categoryGroups")
             .addSnapshotListener { [weak self] snapshot, error in
-                guard let documents = snapshot?.documents else {
-                    print("Error fetching category groups: \(error?.localizedDescription ?? "Unknown error")")
+                if let error = error {
+                    print("Budget: Error fetching category groups: \(error.localizedDescription)")
                     return
                 }
                 
-                self?.categoryGroups = documents.compactMap { document in
-                    CategoryGroup.fromFirestore(document.data())
+                guard let documents = snapshot?.documents else {
+                    print("Budget: No category group documents found")
+                    return
                 }
+                
+                print("Budget: Received \(documents.count) category group documents")
+                self?.categoryGroups = documents.compactMap { document in
+                    guard let group = CategoryGroup.fromFirestore(document.data()) else {
+                        print("Budget: Failed to parse category group document \(document.documentID)")
+                        return nil
+                    }
+                    return group
+                }
+                print("Budget: Updated categoryGroups array with \(self?.categoryGroups.count ?? 0) groups")
             }
             
         // Listen for transactions changes
@@ -66,6 +108,17 @@ class Budget: ObservableObject {
                 
                 self?.templates = documents.compactMap { document in
                     TransactionTemplate.fromFirestore(document.data())
+                }
+            }
+    }
+    
+    func completeSetup() {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        
+        db.collection("users").document(userId)
+            .setData(["isSetupComplete": true], merge: true) { error in
+                if let error = error {
+                    print("Budget: Error marking setup as complete: \(error.localizedDescription)")
                 }
             }
     }
@@ -354,6 +407,26 @@ class Budget: ObservableObject {
         batch.commit { error in
             if let error = error {
                 print("Error creating transfer: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    func saveCategoryGroups(_ groups: [CategoryGroup]) {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        
+        let batch = db.batch()
+        
+        for group in groups {
+            let groupRef = db.collection("users").document(userId)
+                .collection("categoryGroups")
+                .document(group.id.uuidString)
+            
+            batch.setData(group.toFirestore(), forDocument: groupRef)
+        }
+        
+        batch.commit { error in
+            if let error = error {
+                print("Error saving category groups: \(error.localizedDescription)")
             }
         }
     }

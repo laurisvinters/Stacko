@@ -6,7 +6,7 @@ struct MainView: View {
     @ObservedObject var setupCoordinator: SetupCoordinator
     
     var body: some View {
-        if setupCoordinator.isSetupComplete || !budget.categoryGroups.isEmpty {
+        if budget.isSetupComplete {
             // Regular app content
             TabView {
                 NavigationStack {
