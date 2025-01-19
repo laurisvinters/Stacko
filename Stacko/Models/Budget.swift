@@ -10,6 +10,7 @@ class Budget: ObservableObject {
     @Published private(set) var transactions: [Transaction] = []
     @Published private(set) var templates: [TransactionTemplate] = []
     @Published private(set) var isSetupComplete: Bool? = nil
+    @Published private(set) var availableToBudget: Double = 0.0
     
     private var listeners: [ListenerRegistration] = []
     
@@ -88,24 +89,32 @@ class Budget: ObservableObject {
         let accountsListener = db.collection("users").document(userId).collection("accounts")
             .addSnapshotListener { [weak self] snapshot, error in
                 if let error = error {
-                    print("Budget: Error fetching accounts: \(error.localizedDescription)")
+                    print("DEBUG: Error fetching accounts: \(error.localizedDescription)")
                     return
                 }
                 
                 guard let documents = snapshot?.documents else {
-                    print("Budget: No account documents found")
+                    print("DEBUG: No account documents found")
                     return
                 }
                 
-                print("Budget: Received \(documents.count) account documents")
+                print("DEBUG: Received \(documents.count) account documents")
                 self?.accounts = documents.compactMap { document in
                     guard let account = Account.fromFirestore(document.data()) else {
-                        print("Budget: Failed to parse account document \(document.documentID)")
+                        print("DEBUG: Failed to parse account document \(document.documentID)")
                         return nil
                     }
+                    print("DEBUG: Parsed account: \(account)")
                     return account
                 }
-                print("Budget: Updated accounts array with \(self?.accounts.count ?? 0) accounts")
+                
+                // Update availableToBudget to match first non-archived account's balance
+                if let firstAccount = self?.accounts.first(where: { !$0.isArchived }) {
+                    self?.availableToBudget = firstAccount.balance
+                    print("DEBUG: Updated availableToBudget to \(firstAccount.balance)")
+                }
+                
+                print("DEBUG: Updated accounts array with \(self?.accounts.count ?? 0) accounts: \(String(describing: self?.accounts))")
             }
         listeners.append(accountsListener)
         
@@ -328,18 +337,6 @@ class Budget: ObservableObject {
             .document(transaction.id.uuidString)
         batch.setData(transaction.toFirestore(), forDocument: transactionRef)
         
-        // Update account balance
-        if let accountIndex = accounts.firstIndex(where: { $0.id == transaction.accountId }) {
-            var updatedAccount = accounts[accountIndex]
-            updatedAccount.balance += transaction.isIncome ? transaction.amount : -transaction.amount
-            updatedAccount.clearedBalance += transaction.isIncome ? transaction.amount : -transaction.amount
-            
-            let accountRef = db.collection("users").document(userId)
-                .collection("accounts")
-                .document(transaction.accountId.uuidString)
-            batch.setData(updatedAccount.toFirestore(), forDocument: accountRef)
-        }
-        
         // Update only the category's spent amount
         if let (groupIndex, categoryIndex) = findCategory(byId: transaction.categoryId) {
             var updatedGroup = categoryGroups[groupIndex]
@@ -394,17 +391,40 @@ class Budget: ObservableObject {
         guard let userId = Auth.auth().currentUser?.uid,
               let (groupIndex, categoryIndex) = findCategory(byId: categoryId) else { return }
         
+        let batch = db.batch()
+        
+        // Update account balance (this affects available to budget)
+        if let firstAccount = accounts.first(where: { !$0.isArchived }) {
+            if amount > firstAccount.balance {
+                print("Error: Not enough in account")
+                return
+            }
+            
+            var updatedAccount = firstAccount
+            updatedAccount.balance -= amount
+            updatedAccount.clearedBalance -= amount
+            
+            let accountRef = db.collection("users").document(userId)
+                .collection("accounts")
+                .document(updatedAccount.id.uuidString)
+            batch.setData(updatedAccount.toFirestore(), forDocument: accountRef)
+        }
+        
+        // Update category's allocated amount for tracking
         var updatedGroup = categoryGroups[groupIndex]
         updatedGroup.categories[categoryIndex].allocated += amount
         
-        db.collection("users").document(userId)
+        let groupRef = db.collection("users").document(userId)
             .collection("categoryGroups")
             .document(updatedGroup.id.uuidString)
-            .setData(updatedGroup.toFirestore()) { error in
-                if let error = error {
-                    print("Error updating category allocation: \(error.localizedDescription)")
-                }
+        batch.setData(updatedGroup.toFirestore(), forDocument: groupRef)
+        
+        // Commit all changes
+        batch.commit { error in
+            if let error = error {
+                print("Error updating budget allocation: \(error.localizedDescription)")
             }
+        }
     }
     
     func deleteGroup(_ id: UUID) {
