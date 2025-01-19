@@ -36,11 +36,13 @@ struct SetupModeSelectionView: View {
                     subtitle: "Return to sign in",
                     color: .red
                 ) {
-                    do {
-                        try authManager.signOut()
-                    } catch {
-                        errorMessage = error.localizedDescription
-                        showingError = true
+                    Task {
+                        do {
+                            try await authManager.signOut()
+                        } catch {
+                            errorMessage = error.localizedDescription
+                            showingError = true
+                        }
                     }
                 }
             }

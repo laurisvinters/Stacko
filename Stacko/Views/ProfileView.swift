@@ -7,6 +7,7 @@ struct ProfileView: View {
     @State private var showingError = false
     @State private var errorMessage = ""
     @State private var isLoading = false
+    @State private var password = ""
     
     var body: some View {
         Form {
@@ -54,45 +55,54 @@ struct ProfileView: View {
             }
         }
         .navigationTitle("Profile")
+        .disabled(isLoading)
+        .alert("Delete Account", isPresented: $showingDeleteConfirmation) {
+            SecureField("Enter Password", text: $password)
+            Button("Cancel", role: .cancel) { 
+                password = ""
+            }
+            Button("Delete", role: .destructive) {
+                deleteAccount()
+            }
+        } message: {
+            Text("Enter your password to confirm account deletion. This action cannot be undone.")
+        }
         .alert("Error", isPresented: $showingError) {
             Button("OK") { }
         } message: {
             Text(errorMessage)
         }
-        .alert("Delete Account", isPresented: $showingDeleteConfirmation) {
-            Button("Cancel", role: .cancel) { }
-            Button("Delete", role: .destructive) {
-                deleteAccount()
-            }
-        } message: {
-            Text("Are you sure you want to delete your account? This action cannot be undone.")
-        }
-        .disabled(isLoading)
     }
     
     private func signOut() {
-        do {
-            try authManager.signOut()
-        } catch {
-            errorMessage = error.localizedDescription
-            showingError = true
+        Task {
+            do {
+                try await authManager.signOut()
+            } catch {
+                errorMessage = error.localizedDescription
+                showingError = true
+            }
         }
     }
     
     private func deleteAccount() {
+        guard !password.isEmpty else {
+            errorMessage = "Please enter your password"
+            showingError = true
+            return
+        }
+        
         isLoading = true
         
         Task {
             do {
-                // Delete the user from Firebase
-                if let user = Auth.auth().currentUser {
-                    try await user.delete()
-                }
+                try await authManager.deleteAccount(password: password)
             } catch {
                 errorMessage = error.localizedDescription
                 showingError = true
             }
             isLoading = false
+            password = "" // Clear password field
         }
     }
 } 
