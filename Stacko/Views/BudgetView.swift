@@ -71,21 +71,7 @@ struct BudgetView: View {
     }
     
     private var availableToBudget: Double {
-        // Get total balance from all non-archived accounts
-        let totalBalance = budget.accounts
-            .filter { !$0.isArchived }
-            .reduce(0.0) { sum, account in
-                sum + account.balance
-            }
-        
-        // Subtract all allocated amounts from non-income categories
-        let totalAllocated = nonIncomeGroups
-            .flatMap(\.categories)
-            .reduce(0.0) { sum, category in
-                sum + category.allocated
-            }
-        
-        return totalBalance - totalAllocated
+        budget.availableToBudget
     }
     
     private func groupTotal(_ group: CategoryGroup) -> Double {

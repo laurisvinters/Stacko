@@ -36,6 +36,10 @@ struct SignInView: View {
                     Button("Create Account") {
                         showingSignUp = true
                     }
+                    
+                    Button("Continue as Guest") {
+                        signInAsGuest()
+                    }
                 }
             }
             .navigationTitle("Sign In")
@@ -61,6 +65,20 @@ struct SignInView: View {
         Task {
             do {
                 try await authManager.signIn(email: email, password: password)
+            } catch {
+                errorMessage = error.localizedDescription
+                showingError = true
+            }
+            isLoading = false
+        }
+    }
+    
+    private func signInAsGuest() {
+        isLoading = true
+        
+        Task {
+            do {
+                try await authManager.signInAsGuest()
             } catch {
                 errorMessage = error.localizedDescription
                 showingError = true

@@ -17,6 +17,20 @@ struct ProfileView: View {
                 }
             }
             
+            if authManager.isGuest {
+                Section {
+                    NavigationLink {
+                        ConvertGuestAccountView(authManager: authManager)
+                    } label: {
+                        HStack {
+                            Text("Create Full Account")
+                            Spacer()
+                            Image(systemName: "person.badge.plus")
+                        }
+                    }
+                }
+            }
+            
             Section {
                 Button(role: .destructive) {
                     showingDeleteConfirmation = true

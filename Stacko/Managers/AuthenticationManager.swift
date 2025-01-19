@@ -69,4 +69,27 @@ class AuthenticationManager: ObservableObject {
         budget.reset()
         setupCoordinator.isSetupComplete = false
     }
+    
+    func signInAsGuest() async throws {
+        // Sign in anonymously with Firebase
+        let result = try await Auth.auth().signInAnonymously()
+        
+        // Create initial user document in Firestore
+        let db = Firestore.firestore()
+        try await db.collection("users").document(result.user.uid)
+            .setData([
+                "isSetupComplete": false,
+                "email": "",
+                "name": "Guest",
+                "createdAt": Date(),
+                "isGuest": true
+            ])
+        
+        // Update local state
+        handleFirebaseUser(result.user)
+    }
+    
+    var isGuest: Bool {
+        Auth.auth().currentUser?.isAnonymous ?? false
+    }
 } 
