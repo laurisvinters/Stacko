@@ -4,9 +4,10 @@ struct SignInView: View {
     @ObservedObject var authManager: AuthenticationManager
     @State private var email = ""
     @State private var password = ""
+    @State private var showingSignUp = false
     @State private var showingError = false
     @State private var errorMessage = ""
-    @State private var showingSignUp = false
+    @State private var isLoading = false
     
     var body: some View {
         NavigationStack {
@@ -21,32 +22,24 @@ struct SignInView: View {
                 }
                 
                 Section {
-                    Button("Sign In") {
-                        signIn()
+                    Button(action: signIn) {
+                        if isLoading {
+                            ProgressView()
+                        } else {
+                            Text("Sign In")
+                        }
                     }
-                    .disabled(!isValid)
-                    
+                    .disabled(isLoading || !isValid)
+                }
+                
+                Section {
                     Button("Create Account") {
                         showingSignUp = true
                     }
                 }
-                
-                Section {
-                    Button {
-                        authManager.continueAsGuest()
-                    } label: {
-                        HStack {
-                            Text("Continue as Guest")
-                            Spacer()
-                            Image(systemName: "person.fill.questionmark")
-                        }
-                    }
-                } footer: {
-                    Text("Guest mode allows you to try the app without creating an account. Your data will be lost when you sign out.")
-                        .foregroundStyle(.secondary)
-                }
             }
             .navigationTitle("Sign In")
+            .disabled(isLoading)
             .alert("Error", isPresented: $showingError) {
                 Button("OK") { }
             } message: {
@@ -63,11 +56,16 @@ struct SignInView: View {
     }
     
     private func signIn() {
-        do {
-            try authManager.signIn(email: email, password: password)
-        } catch {
-            errorMessage = error.localizedDescription
-            showingError = true
+        isLoading = true
+        
+        Task {
+            do {
+                try await authManager.signIn(email: email, password: password)
+            } catch {
+                errorMessage = error.localizedDescription
+                showingError = true
+            }
+            isLoading = false
         }
     }
 } 

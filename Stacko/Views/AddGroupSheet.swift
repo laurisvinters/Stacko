@@ -35,5 +35,5 @@ struct AddGroupSheet: View {
 }
 
 #Preview {
-    AddGroupSheet(budget: Budget(dataController: DataController()))
+    AddGroupSheet(budget: Budget())
 } 

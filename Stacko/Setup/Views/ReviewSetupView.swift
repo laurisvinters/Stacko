@@ -129,21 +129,34 @@ struct ReviewSetupView: View {
     }
     
     private func saveSetup() {
-        // Save all groups and categories to Core Data
-        for group in coordinator.setupGroups {
-            let createdGroup = budget.addCategoryGroup(name: group.name, emoji: nil)
-            
-            // Only save selected categories
-            for category in group.categories where coordinator.selectedCategories.contains(category.id) {
-                budget.addCategory(
-                    name: category.name,
-                    emoji: category.emoji,
-                    groupId: createdGroup.id,
-                    target: category.target
-                )
-            }
+        // Convert setup groups to CategoryGroup models, including only selected categories
+        let groups = coordinator.setupGroups.map { setupGroup in
+            CategoryGroup(
+                id: setupGroup.id,
+                name: setupGroup.name,
+                emoji: nil,
+                categories: setupGroup.categories
+                    .filter { coordinator.selectedCategories.contains($0.id) }
+                    .map { category in
+                        Category(
+                            id: category.id,
+                            name: category.name,
+                            emoji: category.emoji,
+                            target: category.target,
+                            allocated: 0,
+                            spent: 0
+                        )
+                    }
+            )
         }
         
+        // Save all groups with their categories in a single batch operation
+        budget.saveCategoryGroups(groups)
+        
+        // Mark setup as complete in Firestore
+        budget.completeSetup()
+        
+        // Update local state
         coordinator.isSetupComplete = true
     }
 }

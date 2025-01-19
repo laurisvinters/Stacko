@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseFirestore
 
 struct AccountsSetupView: View {
     @ObservedObject var coordinator: SetupCoordinator
@@ -20,6 +21,14 @@ struct AccountsSetupView: View {
                 }
                 
                 Button {
+                    if budget.categoryGroups.first(where: { $0.name == "Income" }) == nil {
+                        let incomeGroup = budget.addCategoryGroup(name: "Income", emoji: "💰")
+                        budget.addCategory(
+                            name: "Initial Balance",
+                            emoji: "🏦",
+                            groupId: incomeGroup.id ?? UUID()
+                        )
+                    }
                     showAddAccount = true
                 } label: {
                     Label("Add Account", systemImage: "plus.circle")
@@ -95,7 +104,7 @@ struct AccountsSetupView: View {
     NavigationStack {
         AccountsSetupView(
             coordinator: SetupCoordinator(),
-            budget: Budget(dataController: DataController())
+            budget: Budget()
         )
     }
 }

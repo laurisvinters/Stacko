@@ -1,76 +1,84 @@
 import SwiftUI
+import FirebaseAuth
 
 struct ProfileView: View {
     @ObservedObject var authManager: AuthenticationManager
     @State private var showingDeleteConfirmation = false
+    @State private var showingError = false
+    @State private var errorMessage = ""
+    @State private var isLoading = false
     
     var body: some View {
-        List {
-            if let user = authManager.currentUser {
-                Section {
+        Form {
+            Section {
+                if let user = authManager.currentUser {
+                    LabeledContent("Name", value: user.name)
+                    LabeledContent("Email", value: user.email)
+                }
+            }
+            
+            Section {
+                Button(role: .destructive) {
+                    showingDeleteConfirmation = true
+                } label: {
                     HStack {
-                        Text(String(user.name.prefix(1)))
-                            .font(.title)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
-                            .frame(width: 50, height: 50)
-                            .background(Circle().fill(.blue))
-                        
-                        VStack(alignment: .leading) {
-                            Text(user.name)
-                                .font(.headline)
-                            Text(user.email)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding(.vertical, 8)
-                }
-                
-                if authManager.isGuestUser {
-                    Section {
-                        NavigationLink {
-                            ConvertGuestAccountView(authManager: authManager)
-                        } label: {
-                            Label("Convert to Full Account", systemImage: "person.badge.plus")
-                                .foregroundColor(.blue)
-                        }
-                    } footer: {
-                        Text("Convert to a full account to save your data permanently.")
-                            .foregroundStyle(.secondary)
+                        Text("Delete Account")
+                        Spacer()
+                        Image(systemName: "trash")
                     }
                 }
                 
-                Section {
-                    Button(role: .destructive) {
-                        authManager.signOut()
-                    } label: {
-                        Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
-                    }
-                }
-                
-                if !authManager.isGuestUser {
-                    Section {
-                        Button(role: .destructive) {
-                            showingDeleteConfirmation = true
-                        } label: {
-                            Label("Delete Account", systemImage: "trash")
-                        }
-                    } footer: {
-                        Text("Deleting your account will permanently remove all your data including accounts, transactions, and categories.")
-                            .foregroundStyle(.secondary)
+                Button(role: .destructive) {
+                    signOut()
+                } label: {
+                    HStack {
+                        Text("Sign Out")
+                        Spacer()
+                        Image(systemName: "rectangle.portrait.and.arrow.right")
                     }
                 }
             }
         }
         .navigationTitle("Profile")
+        .alert("Error", isPresented: $showingError) {
+            Button("OK") { }
+        } message: {
+            Text(errorMessage)
+        }
         .alert("Delete Account", isPresented: $showingDeleteConfirmation) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
-                authManager.deleteAccount()
+                deleteAccount()
             }
         } message: {
             Text("Are you sure you want to delete your account? This action cannot be undone.")
+        }
+        .disabled(isLoading)
+    }
+    
+    private func signOut() {
+        do {
+            try authManager.signOut()
+        } catch {
+            errorMessage = error.localizedDescription
+            showingError = true
+        }
+    }
+    
+    private func deleteAccount() {
+        isLoading = true
+        
+        Task {
+            do {
+                // Delete the user from Firebase
+                if let user = Auth.auth().currentUser {
+                    try await user.delete()
+                }
+            } catch {
+                errorMessage = error.localizedDescription
+                showingError = true
+            }
+            isLoading = false
         }
     }
 } 

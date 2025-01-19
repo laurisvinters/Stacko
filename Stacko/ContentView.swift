@@ -1,4 +1,4 @@
- //
+//
 //  ContentView.swift
 //  Stacko
 //
@@ -24,16 +24,13 @@ struct ContentView: View {
                 SignInView(authManager: authManager)
             }
         }
-        .environment(\.managedObjectContext, budget.dataController.container.viewContext)
     }
 }
 
 #Preview {
-    let dataController = DataController()
-    let budget = Budget(dataController: dataController)
+    let budget = Budget()
     let coordinator = SetupCoordinator()
     let authManager = AuthenticationManager(
-        dataController: dataController,
         budget: budget,
         setupCoordinator: coordinator
     )

@@ -3,6 +3,8 @@ import SwiftUI
 struct SetupModeSelectionView: View {
     @ObservedObject var coordinator: SetupCoordinator
     @ObservedObject var authManager: AuthenticationManager
+    @State private var showingError = false
+    @State private var errorMessage = ""
     
     var body: some View {
         VStack(spacing: 24) {
@@ -34,12 +36,22 @@ struct SetupModeSelectionView: View {
                     subtitle: "Return to sign in",
                     color: .red
                 ) {
-                    authManager.signOut()
+                    do {
+                        try authManager.signOut()
+                    } catch {
+                        errorMessage = error.localizedDescription
+                        showingError = true
+                    }
                 }
             }
             .padding(.horizontal)
         }
         .navigationBarBackButtonHidden()
+        .alert("Error", isPresented: $showingError) {
+            Button("OK") { }
+        } message: {
+            Text(errorMessage)
+        }
     }
     
     private func setupModeButton(

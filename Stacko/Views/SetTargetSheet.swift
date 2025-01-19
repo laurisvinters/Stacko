@@ -160,7 +160,7 @@ struct SetTargetSheet: View {
 
 #Preview {
     SetTargetSheet(
-        budget: Budget(dataController: DataController()),
+        budget: Budget(),
         category: Category(
             id: UUID(),
             name: "Test",
