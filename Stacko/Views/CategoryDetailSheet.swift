@@ -61,7 +61,7 @@ struct CategoryDetailSheet: View {
         
         switch target.type {
         case .monthly(let amount), .weekly(let amount), .byDate(let amount, _), .custom(let amount, _), .noDate(let amount):
-            return amount > 0 ? category.allocated / amount : 0
+            return amount > 0 ? category.spent / amount : 0
         }
     }
     
@@ -139,9 +139,7 @@ struct CategoryDetailSheet: View {
                                     Spacer()
                                     Text(amount, format: .currency(code: "USD"))
                                 case .byDate(let amount, let date):
-                                    Text("Target by \(date.formatted(date: .abbreviated, time: .omitted)):")
-                                    Spacer()
-                                    Text(amount, format: .currency(code: "USD"))
+                                    Text("\(amount, format: .currency(code: "USD")) by \(date.formatted(date: .abbreviated, time: .omitted))")
                                 case .custom(let amount, let interval):
                                     switch interval {
                                     case .days(let count):
@@ -173,7 +171,7 @@ struct CategoryDetailSheet: View {
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                         Spacer()
-                                        Text(category.allocated, format: .currency(code: "USD"))
+                                        Text(category.spent, format: .currency(code: "USD"))
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                     }

@@ -9,12 +9,12 @@ class Budget: ObservableObject {
     @Published private(set) var categoryGroups: [CategoryGroup] = []
     @Published private(set) var transactions: [Transaction] = []
     @Published private(set) var templates: [TransactionTemplate] = []
-    @Published private(set) var isSetupComplete: Bool = false
+    @Published private(set) var isSetupComplete: Bool? = nil
     
     private var listeners: [ListenerRegistration] = []
     
     init() {
-        setupListeners()
+        // Listeners will be set up by AuthenticationManager when user is ready
     }
     
     func reset() {
@@ -27,7 +27,7 @@ class Budget: ObservableObject {
         categoryGroups = []
         transactions = []
         templates = []
-        isSetupComplete = false
+        isSetupComplete = nil
     }
     
     func setupListeners() {
@@ -37,13 +37,40 @@ class Budget: ObservableObject {
         
         guard let userId = Auth.auth().currentUser?.uid else {
             print("Budget: No user ID available for listeners")
+            // Set default state when no user is available
+            DispatchQueue.main.async { [weak self] in
+                self?.isSetupComplete = false
+            }
             return
         }
         
         print("Budget: Setting up listeners for user \(userId)")
         
-        // Listen for user settings
-        let settingsListener = db.collection("users").document(userId)
+        // Get user settings immediately and then listen for changes
+        let userDocRef = db.collection("users").document(userId)
+        userDocRef.getDocument { [weak self] snapshot, error in
+            if let error = error {
+                print("Budget: Error fetching initial user settings: \(error.localizedDescription)")
+                // Set default state on error
+                DispatchQueue.main.async {
+                    self?.isSetupComplete = false
+                }
+                return
+            }
+            
+            DispatchQueue.main.async {
+                if let data = snapshot?.data() {
+                    self?.isSetupComplete = data["isSetupComplete"] as? Bool ?? false
+                } else {
+                    // Document doesn't exist yet, set default state
+                    self?.isSetupComplete = false
+                }
+                print("Budget: Initial setup completion state: \(self?.isSetupComplete ?? false)")
+            }
+        }
+        
+        // Listen for user settings changes
+        let settingsListener = userDocRef
             .addSnapshotListener { [weak self] snapshot, error in
                 if let error = error {
                     print("Budget: Error fetching user settings: \(error.localizedDescription)")
@@ -120,9 +147,15 @@ class Budget: ObservableObject {
                     return
                 }
                 
+                print("Budget: Received \(documents.count) transaction documents")
                 self?.transactions = documents.compactMap { document in
-                    Transaction.fromFirestore(document.data())
+                    guard let transaction = Transaction.fromFirestore(document.data()) else {
+                        print("Budget: Failed to parse transaction document \(document.documentID)")
+                        return nil
+                    }
+                    return transaction
                 }
+                print("Budget: Updated transactions array with \(self?.transactions.count ?? 0) transactions")
             }
         listeners.append(transactionsListener)
             
@@ -280,16 +313,55 @@ class Budget: ObservableObject {
     }
     
     func addTransaction(_ transaction: Transaction) {
-        guard let userId = Auth.auth().currentUser?.uid else { return }
+        guard let userId = Auth.auth().currentUser?.uid else {
+            print("Budget: Cannot add transaction - no user ID")
+            return
+        }
         
-        db.collection("users").document(userId)
+        print("Budget: Adding transaction \(transaction.id) for user \(userId)")
+        
+        let batch = db.batch()
+        
+        // Add transaction document
+        let transactionRef = db.collection("users").document(userId)
             .collection("transactions")
             .document(transaction.id.uuidString)
-            .setData(transaction.toFirestore()) { error in
-                if let error = error {
-                    print("Error adding transaction: \(error.localizedDescription)")
-                }
+        batch.setData(transaction.toFirestore(), forDocument: transactionRef)
+        
+        // Update account balance
+        if let accountIndex = accounts.firstIndex(where: { $0.id == transaction.accountId }) {
+            var updatedAccount = accounts[accountIndex]
+            updatedAccount.balance += transaction.isIncome ? transaction.amount : -transaction.amount
+            updatedAccount.clearedBalance += transaction.isIncome ? transaction.amount : -transaction.amount
+            
+            let accountRef = db.collection("users").document(userId)
+                .collection("accounts")
+                .document(transaction.accountId.uuidString)
+            batch.setData(updatedAccount.toFirestore(), forDocument: accountRef)
+        }
+        
+        // Update only the category's spent amount
+        if let (groupIndex, categoryIndex) = findCategory(byId: transaction.categoryId) {
+            var updatedGroup = categoryGroups[groupIndex]
+            // For income, we don't affect the spent amount
+            if !transaction.isIncome {
+                updatedGroup.categories[categoryIndex].spent += transaction.amount
             }
+            
+            let groupRef = db.collection("users").document(userId)
+                .collection("categoryGroups")
+                .document(updatedGroup.id.uuidString)
+            batch.setData(updatedGroup.toFirestore(), forDocument: groupRef)
+        }
+        
+        // Commit all changes
+        batch.commit { error in
+            if let error = error {
+                print("Budget: Error adding transaction: \(error.localizedDescription)")
+            } else {
+                print("Budget: Successfully added transaction \(transaction.id)")
+            }
+        }
     }
     
     func findCategory(byId id: UUID) -> (Int, Int)? {
@@ -398,6 +470,8 @@ class Budget: ObservableObject {
     func createTransfer(fromAccountId: UUID, toAccountId: UUID, amount: Double, date: Date, note: String?) {
         guard let userId = Auth.auth().currentUser?.uid else { return }
         
+        let batch = db.batch()
+        
         // Create withdrawal transaction
         let withdrawal = Transaction(
             id: UUID(),
@@ -424,20 +498,54 @@ class Budget: ObservableObject {
             toAccountId: fromAccountId
         )
         
-        // Add both transactions
-        let batch = db.batch()
-        
+        // Add withdrawal transaction
         let withdrawalRef = db.collection("users").document(userId)
             .collection("transactions")
             .document(withdrawal.id.uuidString)
+        batch.setData(withdrawal.toFirestore(), forDocument: withdrawalRef)
         
+        // Add deposit transaction
         let depositRef = db.collection("users").document(userId)
             .collection("transactions")
             .document(deposit.id.uuidString)
-        
-        batch.setData(withdrawal.toFirestore(), forDocument: withdrawalRef)
         batch.setData(deposit.toFirestore(), forDocument: depositRef)
         
+        // Update source account balance
+        if let fromAccountIndex = accounts.firstIndex(where: { $0.id == fromAccountId }) {
+            var updatedFromAccount = accounts[fromAccountIndex]
+            updatedFromAccount.balance -= amount
+            updatedFromAccount.clearedBalance -= amount
+            
+            let fromAccountRef = db.collection("users").document(userId)
+                .collection("accounts")
+                .document(fromAccountId.uuidString)
+            batch.setData(updatedFromAccount.toFirestore(), forDocument: fromAccountRef)
+        }
+        
+        // Update destination account balance
+        if let toAccountIndex = accounts.firstIndex(where: { $0.id == toAccountId }) {
+            var updatedToAccount = accounts[toAccountIndex]
+            updatedToAccount.balance += amount
+            updatedToAccount.clearedBalance += amount
+            
+            let toAccountRef = db.collection("users").document(userId)
+                .collection("accounts")
+                .document(toAccountId.uuidString)
+            batch.setData(updatedToAccount.toFirestore(), forDocument: toAccountRef)
+        }
+        
+        // Update categories if needed
+        if let (fromGroupIndex, fromCategoryIndex) = findCategory(byId: withdrawal.categoryId) {
+            var updatedGroup = categoryGroups[fromGroupIndex]
+            updatedGroup.categories[fromCategoryIndex].spent += amount
+            
+            let groupRef = db.collection("users").document(userId)
+                .collection("categoryGroups")
+                .document(updatedGroup.id.uuidString)
+            batch.setData(updatedGroup.toFirestore(), forDocument: groupRef)
+        }
+        
+        // Commit all changes
         batch.commit { error in
             if let error = error {
                 print("Error creating transfer: \(error.localizedDescription)")

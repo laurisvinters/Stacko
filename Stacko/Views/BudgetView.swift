@@ -71,17 +71,14 @@ struct BudgetView: View {
     }
     
     private var availableToBudget: Double {
-        // Get total balance from non-credit card accounts
+        // Get total balance from all non-archived accounts
         let totalBalance = budget.accounts
             .filter { !$0.isArchived }
             .reduce(0.0) { sum, account in
-                if account.type == .creditCard {
-                    return sum + max(0, account.balance)
-                }
-                return sum + account.balance
+                sum + account.balance
             }
         
-        // Subtract allocated amounts from all non-income categories
+        // Subtract all allocated amounts from non-income categories
         let totalAllocated = nonIncomeGroups
             .flatMap(\.categories)
             .reduce(0.0) { sum, category in
@@ -114,7 +111,7 @@ struct CategoryRow: View {
             // Show target progress if target exists
             if let target = category.target {
                 VStack(alignment: .leading, spacing: 2) {
-                    ProgressView(value: category.allocated, total: targetAmount(for: target))
+                    ProgressView(value: category.spent, total: targetAmount(for: target))
                         .tint(progressColor(for: category))
                     
                     HStack {
@@ -141,7 +138,7 @@ struct CategoryRow: View {
     private func targetProgress(for category: Category) -> Double {
         guard let target = category.target else { return 0 }
         let targetAmount = targetAmount(for: target)
-        return targetAmount > 0 ? category.allocated / targetAmount : 0
+        return targetAmount > 0 ? category.spent / targetAmount : 0
     }
     
     private func progressColor(for category: Category) -> Color {

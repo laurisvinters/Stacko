@@ -1,5 +1,6 @@
 import SwiftUI
 import FirebaseAuth
+import FirebaseFirestore
 
 @MainActor
 class AuthenticationManager: ObservableObject {
@@ -40,13 +41,23 @@ class AuthenticationManager: ObservableObject {
     }
     
     func signUp(email: String, password: String, name: String) async throws {
-        // Create the user in Firebase
+        // Create the user in Firebase Auth
         let result = try await Auth.auth().createUser(withEmail: email, password: password)
         
         // Update display name
         let changeRequest = result.user.createProfileChangeRequest()
         changeRequest.displayName = name
         try await changeRequest.commitChanges()
+        
+        // Create initial user document in Firestore
+        let db = Firestore.firestore()
+        try await db.collection("users").document(result.user.uid)
+            .setData([
+                "isSetupComplete": false,
+                "email": email,
+                "name": name,
+                "createdAt": Date()
+            ])
         
         // Update local state
         handleFirebaseUser(result.user)
