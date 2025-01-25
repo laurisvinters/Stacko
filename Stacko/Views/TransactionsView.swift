@@ -16,16 +16,23 @@ struct TransactionsView: View {
             }
             .navigationTitle("Transactions")
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItem(placement: .navigationBarLeading) {
                     NavigationLink {
                         TransactionTemplatesView(budget: budget)
                     } label: {
                         Label("Templates", systemImage: "doc.on.doc")
                     }
                 }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        showingAddTransaction = true
+                    } label: {
+                        Label("Add", systemImage: "plus")
+                    }
+                }
             }
-            .overlay(alignment: .bottomTrailing) {
-                addButton
+            .sheet(isPresented: $showingAddTransaction) {
+                QuickAddTransactionSheet(budget: budget)
             }
         }
     }
@@ -33,19 +40,6 @@ struct TransactionsView: View {
     // Move computation to a computed property
     private var sortedTransactions: [Transaction] {
         budget.transactions.sorted { $0.date > $1.date }
-    }
-    
-    private var addButton: some View {
-        Button(action: { showingAddTransaction = true }) {
-            Image(systemName: "plus.circle.fill")
-                .font(.system(size: 50))
-                .padding()
-                .symbolRenderingMode(.hierarchical)
-        }
-        .tint(.blue)
-        .sheet(isPresented: $showingAddTransaction) {
-            QuickAddTransactionSheet(budget: budget)
-        }
     }
 }
 

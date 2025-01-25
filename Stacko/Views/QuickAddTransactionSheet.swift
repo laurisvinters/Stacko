@@ -16,7 +16,6 @@ struct QuickAddTransactionSheet: View {
     @State private var selectedAccountId: UUID?
     @State private var isIncome = false
     @State private var date = Date()
-    @State private var keyboardHeight: CGFloat = 0
     
     var body: some View {
         NavigationStack {
@@ -67,6 +66,12 @@ struct QuickAddTransactionSheet: View {
                     }
                     .disabled(!isValid)
                 }
+                
+                ToolbarItem(placement: .keyboard) {
+                    Button("Done") {
+                        focusedField = nil
+                    }
+                }
             }
             .onAppear {
                 // Set default account
@@ -76,51 +81,32 @@ struct QuickAddTransactionSheet: View {
                 
                 // Set initial focus to amount field
                 focusedField = .amount
-                
-                NotificationCenter.default.addObserver(
-                    forName: UIResponder.keyboardWillShowNotification,
-                    object: nil,
-                    queue: .main
-                ) { notification in
-                    if let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
-                        keyboardHeight = keyboardFrame.height
-                    }
-                }
-                
-                NotificationCenter.default.addObserver(
-                    forName: UIResponder.keyboardWillHideNotification,
-                    object: nil,
-                    queue: .main
-                ) { _ in
-                    keyboardHeight = 0
-                }
             }
-            .padding(.bottom, keyboardHeight)
         }
+        .interactiveDismissDisabled()
     }
     
     private var isValid: Bool {
-        guard let amountDouble = Double(amount),
-              amountDouble > 0,
-              !payee.isEmpty,
-              selectedCategoryId != nil,
-              selectedAccountId != nil else {
-            return false
-        }
+        guard let amount = Double(amount), amount > 0 else { return false }
+        guard !payee.isEmpty else { return false }
+        guard selectedCategoryId != nil else { return false }
+        guard selectedAccountId != nil else { return false }
         return true
     }
     
     private func saveTransaction() {
-        guard let amountDouble = Double(amount),
+        guard let amount = Double(amount),
               let categoryId = selectedCategoryId,
-              let accountId = selectedAccountId else { return }
+              let accountId = selectedAccountId else {
+            return
+        }
         
         let transaction = Transaction(
             id: UUID(),
             date: date,
             payee: payee,
             categoryId: categoryId,
-            amount: amountDouble,
+            amount: isIncome ? amount : -amount,
             note: nil,
             isIncome: isIncome,
             accountId: accountId,
@@ -128,11 +114,10 @@ struct QuickAddTransactionSheet: View {
         )
         
         budget.addTransaction(transaction)
-        HapticManager.shared.impact()
         dismiss()
     }
 }
 
 #Preview {
     QuickAddTransactionSheet(budget: Budget())
-} 
+}

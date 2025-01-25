@@ -22,6 +22,15 @@ struct MainView: View {
                 TabView {
                     NavigationStack {
                         BudgetView(budget: budget)
+                            .toolbar {
+                                ToolbarItem(placement: .navigationBarTrailing) {
+                                    NavigationLink {
+                                        ProfileView(authManager: authManager)
+                                    } label: {
+                                        Label("Profile", systemImage: "person.circle")
+                                    }
+                                }
+                            }
                     }
                     .tabItem {
                         Label("Budget", systemImage: "dollarsign.circle")
@@ -29,6 +38,15 @@ struct MainView: View {
                     
                     NavigationStack {
                         AccountsView(budget: budget)
+                            .toolbar {
+                                ToolbarItem(placement: .navigationBarTrailing) {
+                                    NavigationLink {
+                                        ProfileView(authManager: authManager)
+                                    } label: {
+                                        Label("Profile", systemImage: "person.circle")
+                                    }
+                                }
+                            }
                     }
                     .tabItem {
                         Label("Accounts", systemImage: "creditcard")
@@ -36,6 +54,15 @@ struct MainView: View {
                     
                     NavigationStack {
                         TransactionsView(budget: budget)
+                            .toolbar {
+                                ToolbarItem(placement: .navigationBarTrailing) {
+                                    NavigationLink {
+                                        ProfileView(authManager: authManager)
+                                    } label: {
+                                        Label("Profile", systemImage: "person.circle")
+                                    }
+                                }
+                            }
                     }
                     .tabItem {
                         Label("Transactions", systemImage: "list.bullet")
@@ -43,16 +70,18 @@ struct MainView: View {
                     
                     NavigationStack {
                         ReportsView(budget: budget)
+                            .toolbar {
+                                ToolbarItem(placement: .navigationBarTrailing) {
+                                    NavigationLink {
+                                        ProfileView(authManager: authManager)
+                                    } label: {
+                                        Label("Profile", systemImage: "person.circle")
+                                    }
+                                }
+                            }
                     }
                     .tabItem {
                         Label("Reports", systemImage: "chart.bar")
-                    }
-                    
-                    NavigationStack {
-                        ProfileView(authManager: authManager)
-                    }
-                    .tabItem {
-                        Label("Profile", systemImage: "person.circle")
                     }
                 }
             }

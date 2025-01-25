@@ -46,7 +46,7 @@ struct BudgetView: View {
         }
         .navigationTitle("Budget")
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItem(placement: .navigationBarLeading) {
                 Menu {
                     Button("Add Category") {
                         showingAddCategory = true
@@ -55,7 +55,7 @@ struct BudgetView: View {
                         showingAddGroup = true
                     }
                 } label: {
-                    Image(systemName: "plus")
+                    Label("Add", systemImage: "plus")
                 }
             }
         }

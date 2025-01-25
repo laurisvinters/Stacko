@@ -30,7 +30,7 @@ struct AccountsView: View {
         }
         .navigationTitle("Accounts")
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItem(placement: .navigationBarLeading) {
                 Menu {
                     Button {
                         showingAddAccount = true
@@ -44,7 +44,7 @@ struct AccountsView: View {
                         Label("Transfer", systemImage: "arrow.left.arrow.right")
                     }
                 } label: {
-                    Image(systemName: "ellipsis.circle")
+                    Label("Actions", systemImage: "ellipsis.circle")
                 }
             }
         }
