@@ -351,6 +351,19 @@ class Budget: ObservableObject {
             batch.setData(updatedGroup.toFirestore(), forDocument: groupRef)
         }
         
+        // Update account balance
+        if let accountIndex = accounts.firstIndex(where: { $0.id == transaction.accountId }) {
+            var updatedAccount = accounts[accountIndex]
+            updatedAccount.balance += transaction.amount
+            // For now, assume all transactions affect cleared balance
+            updatedAccount.clearedBalance += transaction.amount
+            
+            let accountRef = db.collection("users").document(userId)
+                .collection("accounts")
+                .document(updatedAccount.id.uuidString)
+            batch.setData(updatedAccount.toFirestore(), forDocument: accountRef)
+        }
+        
         // Commit all changes
         batch.commit { error in
             if let error = error {
@@ -592,4 +605,152 @@ class Budget: ObservableObject {
             }
         }
     }
-} 
+    
+    func deleteTransaction(_ transaction: Transaction) {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            print("Budget: Cannot delete transaction - no user ID")
+            return
+        }
+        
+        print("Budget: Deleting transaction \(transaction.id) for user \(userId)")
+        
+        let batch = db.batch()
+        
+        // Delete transaction document
+        let transactionRef = db.collection("users").document(userId)
+            .collection("transactions")
+            .document(transaction.id.uuidString)
+        batch.deleteDocument(transactionRef)
+        
+        // Update category's spent amount
+        if let (groupIndex, categoryIndex) = findCategory(byId: transaction.categoryId) {
+            var updatedGroup = categoryGroups[groupIndex]
+            // For income, we don't affect the spent amount
+            if !transaction.isIncome {
+                updatedGroup.categories[categoryIndex].spent -= transaction.amount
+            }
+            
+            let groupRef = db.collection("users").document(userId)
+                .collection("categoryGroups")
+                .document(updatedGroup.id.uuidString)
+            batch.setData(updatedGroup.toFirestore(), forDocument: groupRef)
+        }
+        
+        // Update account balance
+        if let accountIndex = accounts.firstIndex(where: { $0.id == transaction.accountId }) {
+            var updatedAccount = accounts[accountIndex]
+            updatedAccount.balance -= transaction.amount
+            // For now, assume all transactions affect cleared balance
+            updatedAccount.clearedBalance -= transaction.amount
+            
+            let accountRef = db.collection("users").document(userId)
+                .collection("accounts")
+                .document(updatedAccount.id.uuidString)
+            batch.setData(updatedAccount.toFirestore(), forDocument: accountRef)
+        }
+        
+        // Commit all changes
+        batch.commit { error in
+            if let error = error {
+                print("Budget: Error deleting transaction: \(error.localizedDescription)")
+            } else {
+                print("Budget: Successfully deleted transaction \(transaction.id)")
+            }
+        }
+    }
+    
+    func updateTransaction(_ oldTransaction: Transaction, with newTransaction: Transaction) {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            print("Budget: Cannot update transaction - no user ID")
+            return
+        }
+        
+        print("Budget: Updating transaction \(oldTransaction.id) for user \(userId)")
+        
+        let batch = db.batch()
+        
+        // Update transaction document
+        let transactionRef = db.collection("users").document(userId)
+            .collection("transactions")
+            .document(oldTransaction.id.uuidString)
+        batch.setData(newTransaction.toFirestore(), forDocument: transactionRef)
+        
+        // Update old category's spent amount
+        if let (oldGroupIndex, oldCategoryIndex) = findCategory(byId: oldTransaction.categoryId) {
+            var updatedOldGroup = categoryGroups[oldGroupIndex]
+            // For income, we don't affect the spent amount
+            if !oldTransaction.isIncome {
+                updatedOldGroup.categories[oldCategoryIndex].spent -= oldTransaction.amount
+            }
+            
+            let oldGroupRef = db.collection("users").document(userId)
+                .collection("categoryGroups")
+                .document(updatedOldGroup.id.uuidString)
+            batch.setData(updatedOldGroup.toFirestore(), forDocument: oldGroupRef)
+        }
+        
+        // Update new category's spent amount (if different from old category)
+        if oldTransaction.categoryId != newTransaction.categoryId,
+           let (newGroupIndex, newCategoryIndex) = findCategory(byId: newTransaction.categoryId) {
+            var updatedNewGroup = categoryGroups[newGroupIndex]
+            // For income, we don't affect the spent amount
+            if !newTransaction.isIncome {
+                updatedNewGroup.categories[newCategoryIndex].spent += newTransaction.amount
+            }
+            
+            let newGroupRef = db.collection("users").document(userId)
+                .collection("categoryGroups")
+                .document(updatedNewGroup.id.uuidString)
+            batch.setData(updatedNewGroup.toFirestore(), forDocument: newGroupRef)
+        }
+        
+        // If same account, update its balance with the difference
+        if oldTransaction.accountId == newTransaction.accountId {
+            if let accountIndex = accounts.firstIndex(where: { $0.id == oldTransaction.accountId }) {
+                var updatedAccount = accounts[accountIndex]
+                // Remove old transaction's effect and add new transaction's effect
+                updatedAccount.balance = updatedAccount.balance - oldTransaction.amount + newTransaction.amount
+                updatedAccount.clearedBalance = updatedAccount.clearedBalance - oldTransaction.amount + newTransaction.amount
+                
+                let accountRef = db.collection("users").document(userId)
+                    .collection("accounts")
+                    .document(updatedAccount.id.uuidString)
+                batch.setData(updatedAccount.toFirestore(), forDocument: accountRef)
+            }
+        } else {
+            // Different accounts, update both old and new accounts
+            if let oldAccountIndex = accounts.firstIndex(where: { $0.id == oldTransaction.accountId }) {
+                var updatedOldAccount = accounts[oldAccountIndex]
+                // Remove old transaction's effect
+                updatedOldAccount.balance -= oldTransaction.amount
+                updatedOldAccount.clearedBalance -= oldTransaction.amount
+                
+                let oldAccountRef = db.collection("users").document(userId)
+                    .collection("accounts")
+                    .document(updatedOldAccount.id.uuidString)
+                batch.setData(updatedOldAccount.toFirestore(), forDocument: oldAccountRef)
+            }
+            
+            if let newAccountIndex = accounts.firstIndex(where: { $0.id == newTransaction.accountId }) {
+                var updatedNewAccount = accounts[newAccountIndex]
+                // Add new transaction's effect
+                updatedNewAccount.balance += newTransaction.amount
+                updatedNewAccount.clearedBalance += newTransaction.amount
+                
+                let newAccountRef = db.collection("users").document(userId)
+                    .collection("accounts")
+                    .document(updatedNewAccount.id.uuidString)
+                batch.setData(updatedNewAccount.toFirestore(), forDocument: newAccountRef)
+            }
+        }
+        
+        // Commit all changes
+        batch.commit { error in
+            if let error = error {
+                print("Budget: Error updating transaction: \(error.localizedDescription)")
+            } else {
+                print("Budget: Successfully updated transaction \(oldTransaction.id)")
+            }
+        }
+    }
+}

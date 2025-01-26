@@ -3,15 +3,29 @@ import SwiftUI
 struct TransactionsView: View {
     @ObservedObject var budget: Budget
     @State private var showingAddTransaction = false
+    @State private var transactionToEdit: Transaction?
     
     var body: some View {
         NavigationStack {
             List {
-                LazyVStack(spacing: 8) {
-                    ForEach(sortedTransactions) { transaction in
-                        TransactionRow(transaction: transaction, budget: budget)
-                            .equatable()
-                    }
+                ForEach(sortedTransactions) { transaction in
+                    TransactionRow(transaction: transaction, budget: budget)
+                        .equatable()
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                budget.deleteTransaction(transaction)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                            Button {
+                                transactionToEdit = transaction
+                            } label: {
+                                Label("Edit", systemImage: "pencil")
+                            }
+                            .tint(.blue)
+                        }
                 }
             }
             .navigationTitle("Transactions")
@@ -34,6 +48,9 @@ struct TransactionsView: View {
             .sheet(isPresented: $showingAddTransaction) {
                 QuickAddTransactionSheet(budget: budget)
             }
+            .sheet(item: $transactionToEdit) { transaction in
+                QuickAddTransactionSheet(budget: budget, existingTransaction: transaction)
+            }
         }
     }
     
@@ -45,4 +62,4 @@ struct TransactionsView: View {
 
 #Preview {
     TransactionsView(budget: Budget())
-} 
+}

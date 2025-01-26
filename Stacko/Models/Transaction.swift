@@ -3,14 +3,14 @@ import FirebaseFirestore
 
 struct Transaction: Identifiable, Encodable {
     let id: UUID
-    var date: Date
-    var payee: String
-    var categoryId: UUID
-    var amount: Double
-    var note: String?
-    var isIncome: Bool
-    var accountId: UUID
-    var toAccountId: UUID?
+    let date: Date
+    let payee: String
+    let categoryId: UUID
+    let amount: Double
+    let note: String?
+    let isIncome: Bool
+    let accountId: UUID
+    let toAccountId: UUID?
     
     var isTransfer: Bool {
         toAccountId != nil
@@ -68,4 +68,4 @@ struct Transaction: Identifiable, Encodable {
             toAccountId: toAccountId
         )
     }
-} 
+}

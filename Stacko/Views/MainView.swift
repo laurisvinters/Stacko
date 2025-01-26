@@ -4,6 +4,9 @@ struct MainView: View {
     @ObservedObject var authManager: AuthenticationManager
     @ObservedObject var budget: Budget
     @ObservedObject var setupCoordinator: SetupCoordinator
+    @State private var showingAddTransaction = false
+    @State private var selectedTab = 0
+    @State private var previousTab = 0  // Add this to track the previous tab
     
     var body: some View {
         Group {
@@ -19,7 +22,7 @@ struct MainView: View {
                 )
             } else {
                 // Regular app content
-                TabView {
+                TabView(selection: $selectedTab) {
                     NavigationStack {
                         BudgetView(budget: budget)
                             .toolbar {
@@ -35,6 +38,7 @@ struct MainView: View {
                     .tabItem {
                         Label("Budget", systemImage: "dollarsign.circle")
                     }
+                    .tag(0)
                     
                     NavigationStack {
                         AccountsView(budget: budget)
@@ -51,6 +55,14 @@ struct MainView: View {
                     .tabItem {
                         Label("Accounts", systemImage: "creditcard")
                     }
+                    .tag(1)
+                    
+                    // Add Transaction Tab
+                    Color.clear
+                        .tabItem {
+                            Label("Add", systemImage: "plus.circle.fill")
+                        }
+                        .tag(2)
                     
                     NavigationStack {
                         TransactionsView(budget: budget)
@@ -67,6 +79,7 @@ struct MainView: View {
                     .tabItem {
                         Label("Transactions", systemImage: "list.bullet")
                     }
+                    .tag(3)
                     
                     NavigationStack {
                         ReportsView(budget: budget)
@@ -83,6 +96,18 @@ struct MainView: View {
                     .tabItem {
                         Label("Reports", systemImage: "chart.bar")
                     }
+                    .tag(4)
+                }
+                .onChange(of: selectedTab) { newTab in
+                    if newTab == 2 {
+                        showingAddTransaction = true
+                        selectedTab = previousTab  // Return to the previous tab
+                    } else {
+                        previousTab = newTab  // Store the new tab as previous
+                    }
+                }
+                .sheet(isPresented: $showingAddTransaction) {
+                    QuickAddTransactionSheet(budget: budget)
                 }
             }
         }
@@ -97,9 +122,9 @@ struct MainView: View {
         setupCoordinator: coordinator
     )
     
-    MainView(
+    return MainView(
         authManager: authManager,
         budget: budget,
         setupCoordinator: coordinator
     )
-} 
+}
