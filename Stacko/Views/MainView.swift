@@ -16,7 +16,7 @@ struct MainView: View {
             } else if budget.isSetupComplete == false {
                 // Setup flow
                 SetupContainerView(
-                    budget: budget, 
+                    budget: budget,
                     coordinator: setupCoordinator,
                     authManager: authManager
                 )
@@ -37,6 +37,8 @@ struct MainView: View {
                     }
                     .tabItem {
                         Label("Budget", systemImage: "dollarsign.circle")
+                            .environment(\.symbolVariants, .none)
+                            .font(.system(size: 18))
                     }
                     .tag(0)
                     
@@ -54,6 +56,8 @@ struct MainView: View {
                     }
                     .tabItem {
                         Label("Accounts", systemImage: "creditcard")
+                            .environment(\.symbolVariants, .none)
+                            .font(.system(size: 18))
                     }
                     .tag(1)
                     
@@ -61,6 +65,8 @@ struct MainView: View {
                     Color.clear
                         .tabItem {
                             Label("Add", systemImage: "plus.circle.fill")
+                                .environment(\.symbolVariants, .fill)
+                                .font(.system(size: 22))
                         }
                         .tag(2)
                     
@@ -78,6 +84,8 @@ struct MainView: View {
                     }
                     .tabItem {
                         Label("Transactions", systemImage: "list.bullet")
+                            .environment(\.symbolVariants, .none)
+                            .font(.system(size: 18))
                     }
                     .tag(3)
                     
@@ -95,6 +103,8 @@ struct MainView: View {
                     }
                     .tabItem {
                         Label("Reports", systemImage: "chart.bar")
+                            .environment(\.symbolVariants, .none)
+                            .font(.system(size: 18))
                     }
                     .tag(4)
                 }

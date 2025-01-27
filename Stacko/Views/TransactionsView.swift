@@ -8,6 +8,9 @@ struct TransactionsView: View {
     var body: some View {
         NavigationStack {
             List {
+                Text("Swipe left to delete, right, then click to edit")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 ForEach(sortedTransactions) { transaction in
                     TransactionRow(transaction: transaction, budget: budget)
                         .equatable()
