@@ -3,6 +3,7 @@ import SwiftUI
 struct CategoryDetailSheet: View {
     @ObservedObject var budget: Budget
     @State private var categoryId: UUID  // Store ID instead of Category
+    @State private var transactionToEdit: Transaction?
     
     // Add computed property to get current category state
     private var category: Category {
@@ -21,9 +22,19 @@ struct CategoryDetailSheet: View {
     @State private var showingSetTarget = false
     @State private var allocationAmount = ""
     
-    private var recentTransactions: [Transaction] {
-        budget.transactions
+    private var recentActivity: [(date: Date, isTransaction: Bool, amount: Double)] {
+        // Get recent transactions
+        let transactions = budget.transactions
             .filter { $0.categoryId == category.id }
+            .map { (date: $0.date, isTransaction: true, amount: $0.amount) }
+        
+        // Get recent allocations
+        let allocations = budget.allocations
+            .filter { $0.categoryId == category.id }
+            .map { (date: $0.date, isTransaction: false, amount: $0.amount) }
+        
+        // Combine and sort by date (most recent first)
+        return (transactions + allocations)
             .sorted { $0.date > $1.date }
             .prefix(5)
             .map { $0 }
@@ -61,7 +72,7 @@ struct CategoryDetailSheet: View {
         
         switch target.type {
         case .monthly(let amount), .weekly(let amount), .byDate(let amount, _), .custom(let amount, _), .noDate(let amount):
-            return amount > 0 ? category.spent / amount : 0
+            return amount > 0 ? allocated / amount : 0
         }
     }
     
@@ -171,7 +182,7 @@ struct CategoryDetailSheet: View {
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                         Spacer()
-                                        Text(category.spent, format: .currency(code: "USD"))
+                                        Text(targetAmount, format: .currency(code: "USD"))
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                     }
@@ -186,13 +197,70 @@ struct CategoryDetailSheet: View {
                     }
                 }
                 
-                Section("Recent Transactions") {
-                    if recentTransactions.isEmpty {
-                        Text("No transactions yet")
+                Section("Recent Activity") {
+                    if recentActivity.isEmpty {
+                        Text("No activity yet")
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(recentTransactions) { transaction in
-                            TransactionListRow(transaction: transaction)
+                        ForEach(recentActivity, id: \.date) { activity in
+                            if activity.isTransaction {
+                                // Only allow swipe actions for transactions
+                                HStack {
+                                    Image(systemName: "arrow.up.right")
+                                        .foregroundColor(.red)
+                                    
+                                    VStack(alignment: .leading) {
+                                        Text("Expense")
+                                        Text(activity.date.formatted(date: .numeric, time: .shortened))
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Text(activity.amount, format: .currency(code: "USD"))
+                                        .foregroundColor(.red)
+                                }
+                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                    Button(role: .destructive) {
+                                        // Find and delete the transaction
+                                        if let transaction = budget.transactions.first(where: { $0.date == activity.date && $0.amount == activity.amount }) {
+                                            budget.deleteTransaction(transaction)
+                                        }
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
+                                .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                                    Button {
+                                        // Find and set the transaction to edit
+                                        if let transaction = budget.transactions.first(where: { $0.date == activity.date && $0.amount == activity.amount }) {
+                                            transactionToEdit = transaction
+                                        }
+                                    } label: {
+                                        Label("Edit", systemImage: "pencil")
+                                    }
+                                    .tint(.blue)
+                                }
+                            } else {
+                                // Allocation entries - no swipe actions
+                                HStack {
+                                    Image(systemName: "plus")
+                                        .foregroundColor(.blue)
+                                    
+                                    VStack(alignment: .leading) {
+                                        Text("Allocation")
+                                        Text(activity.date.formatted(date: .numeric, time: .shortened))
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Text(activity.amount, format: .currency(code: "USD"))
+                                        .foregroundColor(.blue)
+                                }
+                            }
                         }
                     }
                 }
@@ -206,6 +274,9 @@ struct CategoryDetailSheet: View {
             }
             .sheet(isPresented: $showingSetTarget) {
                 SetTargetSheet(budget: budget, category: category)
+            }
+            .sheet(item: $transactionToEdit) { transaction in
+                QuickAddTransactionSheet(budget: budget, existingTransaction: transaction)
             }
         }
     }

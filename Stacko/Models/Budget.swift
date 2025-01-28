@@ -9,6 +9,7 @@ class Budget: ObservableObject {
     @Published private(set) var categoryGroups: [CategoryGroup] = []
     @Published private(set) var transactions: [Transaction] = []
     @Published private(set) var templates: [TransactionTemplate] = []
+    @Published private(set) var allocations: [Allocation] = []
     @Published private(set) var isSetupComplete: Bool? = nil
     @Published private(set) var availableToBudget: Double = 0.0
     
@@ -28,6 +29,7 @@ class Budget: ObservableObject {
         categoryGroups = []
         transactions = []
         templates = []
+        allocations = []
         isSetupComplete = nil
     }
     
@@ -186,6 +188,26 @@ class Budget: ObservableObject {
                 }
             }
         listeners.append(templatesListener)
+        
+        // Listen for allocations changes
+        let allocationsListener = db.collection("users").document(userId).collection("allocations")
+            .addSnapshotListener { [weak self] snapshot, error in
+                if let error = error {
+                    print("Budget: Error fetching allocations: \(error.localizedDescription)")
+                    return
+                }
+                
+                guard let documents = snapshot?.documents else {
+                    print("Budget: No allocation documents found")
+                    return
+                }
+                
+                let allocations = documents.compactMap { Allocation.fromFirestore($0.data()) }
+                DispatchQueue.main.async {
+                    self?.allocations = allocations
+                }
+            }
+        listeners.append(allocationsListener)
     }
     
     func completeSetup() {
@@ -342,7 +364,7 @@ class Budget: ObservableObject {
             var updatedGroup = categoryGroups[groupIndex]
             // For income, we don't affect the spent amount
             if !transaction.isIncome {
-                updatedGroup.categories[categoryIndex].spent += transaction.amount
+                updatedGroup.categories[categoryIndex].spent -= transaction.amount
             }
             
             let groupRef = db.collection("users").document(userId)
@@ -404,29 +426,42 @@ class Budget: ObservableObject {
         guard let userId = Auth.auth().currentUser?.uid,
               let (groupIndex, categoryIndex) = findCategory(byId: categoryId) else { return }
         
+        // Calculate total allocated amount after this allocation
+        var totalAllocated = amount
+        for group in categoryGroups {
+            for category in group.categories {
+                totalAllocated += category.allocated
+            }
+        }
+        
+        // Check if we have enough to allocate
+        let totalAvailable = accounts.filter { !$0.isArchived }.reduce(0) { $0 + $1.balance }
+        if totalAllocated > totalAvailable {
+            print("Error: Not enough available to budget")
+            return
+        }
+        
+        // Create a new allocation record
+        let allocation = Allocation(
+            id: UUID(),
+            date: Date(),
+            categoryId: categoryId,
+            amount: amount
+        )
+        
         let batch = db.batch()
         
-        // Update account balance (this affects available to budget)
-        if let firstAccount = accounts.first(where: { !$0.isArchived }) {
-            if amount > firstAccount.balance {
-                print("Error: Not enough in account")
-                return
-            }
-            
-            var updatedAccount = firstAccount
-            updatedAccount.balance -= amount
-            updatedAccount.clearedBalance -= amount
-            
-            let accountRef = db.collection("users").document(userId)
-                .collection("accounts")
-                .document(updatedAccount.id.uuidString)
-            batch.setData(updatedAccount.toFirestore(), forDocument: accountRef)
-        }
+        // Add allocation document
+        let allocationRef = db.collection("users").document(userId)
+            .collection("allocations")
+            .document(allocation.id.uuidString)
+        batch.setData(allocation.toFirestore(), forDocument: allocationRef)
         
         // Update category's allocated amount for tracking
         var updatedGroup = categoryGroups[groupIndex]
         updatedGroup.categories[categoryIndex].allocated += amount
         
+        // Update category group in Firestore
         let groupRef = db.collection("users").document(userId)
             .collection("categoryGroups")
             .document(updatedGroup.id.uuidString)
@@ -570,7 +605,7 @@ class Budget: ObservableObject {
         // Update categories if needed
         if let (fromGroupIndex, fromCategoryIndex) = findCategory(byId: withdrawal.categoryId) {
             var updatedGroup = categoryGroups[fromGroupIndex]
-            updatedGroup.categories[fromCategoryIndex].spent += amount
+            updatedGroup.categories[fromCategoryIndex].spent -= amount
             
             let groupRef = db.collection("users").document(userId)
                 .collection("categoryGroups")
@@ -627,7 +662,7 @@ class Budget: ObservableObject {
             var updatedGroup = categoryGroups[groupIndex]
             // For income, we don't affect the spent amount
             if !transaction.isIncome {
-                updatedGroup.categories[categoryIndex].spent -= transaction.amount
+                updatedGroup.categories[categoryIndex].spent += transaction.amount
             }
             
             let groupRef = db.collection("users").document(userId)
@@ -675,33 +710,51 @@ class Budget: ObservableObject {
             .document(oldTransaction.id.uuidString)
         batch.setData(newTransaction.toFirestore(), forDocument: transactionRef)
         
-        // Update old category's spent amount
-        if let (oldGroupIndex, oldCategoryIndex) = findCategory(byId: oldTransaction.categoryId) {
-            var updatedOldGroup = categoryGroups[oldGroupIndex]
-            // For income, we don't affect the spent amount
-            if !oldTransaction.isIncome {
-                updatedOldGroup.categories[oldCategoryIndex].spent -= oldTransaction.amount
+        // Update category spent amounts
+        if oldTransaction.categoryId == newTransaction.categoryId {
+            // Same category, just update the difference
+            if let (groupIndex, categoryIndex) = findCategory(byId: oldTransaction.categoryId) {
+                var updatedGroup = categoryGroups[groupIndex]
+                // For income, we don't affect the spent amount
+                if !oldTransaction.isIncome && !newTransaction.isIncome {
+                    // Remove old amount and add new amount
+                    updatedGroup.categories[categoryIndex].spent = updatedGroup.categories[categoryIndex].spent - oldTransaction.amount + newTransaction.amount
+                }
+                
+                let groupRef = db.collection("users").document(userId)
+                    .collection("categoryGroups")
+                    .document(updatedGroup.id.uuidString)
+                batch.setData(updatedGroup.toFirestore(), forDocument: groupRef)
+            }
+        } else {
+            // Different categories, update both
+            // Update old category's spent amount
+            if let (oldGroupIndex, oldCategoryIndex) = findCategory(byId: oldTransaction.categoryId) {
+                var updatedOldGroup = categoryGroups[oldGroupIndex]
+                // For income, we don't affect the spent amount
+                if !oldTransaction.isIncome {
+                    updatedOldGroup.categories[oldCategoryIndex].spent -= oldTransaction.amount
+                }
+                
+                let oldGroupRef = db.collection("users").document(userId)
+                    .collection("categoryGroups")
+                    .document(updatedOldGroup.id.uuidString)
+                batch.setData(updatedOldGroup.toFirestore(), forDocument: oldGroupRef)
             }
             
-            let oldGroupRef = db.collection("users").document(userId)
-                .collection("categoryGroups")
-                .document(updatedOldGroup.id.uuidString)
-            batch.setData(updatedOldGroup.toFirestore(), forDocument: oldGroupRef)
-        }
-        
-        // Update new category's spent amount (if different from old category)
-        if oldTransaction.categoryId != newTransaction.categoryId,
-           let (newGroupIndex, newCategoryIndex) = findCategory(byId: newTransaction.categoryId) {
-            var updatedNewGroup = categoryGroups[newGroupIndex]
-            // For income, we don't affect the spent amount
-            if !newTransaction.isIncome {
-                updatedNewGroup.categories[newCategoryIndex].spent += newTransaction.amount
+            // Update new category's spent amount
+            if let (newGroupIndex, newCategoryIndex) = findCategory(byId: newTransaction.categoryId) {
+                var updatedNewGroup = categoryGroups[newGroupIndex]
+                // For income, we don't affect the spent amount
+                if !newTransaction.isIncome {
+                    updatedNewGroup.categories[newCategoryIndex].spent += newTransaction.amount
+                }
+                
+                let newGroupRef = db.collection("users").document(userId)
+                    .collection("categoryGroups")
+                    .document(updatedNewGroup.id.uuidString)
+                batch.setData(updatedNewGroup.toFirestore(), forDocument: newGroupRef)
             }
-            
-            let newGroupRef = db.collection("users").document(userId)
-                .collection("categoryGroups")
-                .document(updatedNewGroup.id.uuidString)
-            batch.setData(updatedNewGroup.toFirestore(), forDocument: newGroupRef)
         }
         
         // If same account, update its balance with the difference
@@ -718,10 +771,9 @@ class Budget: ObservableObject {
                 batch.setData(updatedAccount.toFirestore(), forDocument: accountRef)
             }
         } else {
-            // Different accounts, update both old and new accounts
+            // Different accounts, update both
             if let oldAccountIndex = accounts.firstIndex(where: { $0.id == oldTransaction.accountId }) {
                 var updatedOldAccount = accounts[oldAccountIndex]
-                // Remove old transaction's effect
                 updatedOldAccount.balance -= oldTransaction.amount
                 updatedOldAccount.clearedBalance -= oldTransaction.amount
                 
@@ -733,7 +785,6 @@ class Budget: ObservableObject {
             
             if let newAccountIndex = accounts.firstIndex(where: { $0.id == newTransaction.accountId }) {
                 var updatedNewAccount = accounts[newAccountIndex]
-                // Add new transaction's effect
                 updatedNewAccount.balance += newTransaction.amount
                 updatedNewAccount.clearedBalance += newTransaction.amount
                 

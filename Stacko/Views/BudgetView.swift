@@ -82,7 +82,11 @@ struct BudgetView: View {
         let totalAllocated = nonIncomeGroups
             .flatMap(\.categories)
             .reduce(0.0) { sum, category in
-                sum + category.allocated
+                // We need to consider both allocated and spent amounts
+                // If money is spent from a category, we should reduce the allocated amount
+                // to avoid double-counting (since spent money is already deducted from account balance)
+                let effectiveAllocation = max(0, category.allocated - category.spent)
+                return sum + effectiveAllocation
             }
         
         return totalBalance - totalAllocated
@@ -111,7 +115,7 @@ struct CategoryRow: View {
             // Show target progress if target exists
             if let target = category.target {
                 VStack(alignment: .leading, spacing: 2) {
-                    ProgressView(value: category.spent, total: targetAmount(for: target))
+                    ProgressView(value: category.allocated, total: targetAmount(for: target))
                         .tint(progressColor(for: category))
                     
                     HStack {
@@ -138,7 +142,7 @@ struct CategoryRow: View {
     private func targetProgress(for category: Category) -> Double {
         guard let target = category.target else { return 0 }
         let targetAmount = targetAmount(for: target)
-        return targetAmount > 0 ? category.spent / targetAmount : 0
+        return targetAmount > 0 ? category.allocated / targetAmount : 0
     }
     
     private func progressColor(for category: Category) -> Color {
