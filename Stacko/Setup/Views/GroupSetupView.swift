@@ -220,18 +220,19 @@ struct GroupSetupView: View {
             }
         }
         .alert("Cancel Setup", isPresented: $showingCancelAlert) {
-            Button("Continue Setup", role: .cancel) { }
-            Button("Cancel Setup", role: .destructive) {
-                coordinator.cancelSetup()
-                do {
-                    try authManager.signOut()
-                } catch {
-                    errorMessage = error.localizedDescription
-                    showingError = true
+            Button("No", role: .cancel) { }
+            Button("Yes", role: .destructive) {
+                Task {
+                    do {
+                        try await authManager.signOut()
+                    } catch {
+                        errorMessage = error.localizedDescription
+                        showingError = true
+                    }
                 }
             }
         } message: {
-            Text("Are you sure you want to cancel the setup process? All progress will be lost.")
+            Text("Are you sure you want to cancel the setup? You'll need to start over.")
         }
         .alert("Error", isPresented: $showingError) {
             Button("OK") { }
