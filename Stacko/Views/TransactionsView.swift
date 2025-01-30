@@ -12,23 +12,42 @@ struct TransactionsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 ForEach(sortedTransactions) { transaction in
-                    TransactionRow(transaction: transaction, budget: budget)
-                        .equatable()
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button(role: .destructive) {
-                                budget.deleteTransaction(transaction)
-                            } label: {
-                                Label("Delete", systemImage: "trash")
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text(transaction.payee)
+                                Text(transaction.date.formatted(date: .abbreviated, time: .shortened))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                HStack(spacing: 4) {
+                                    Text("•")
+                                    if let account = budget.accounts.first(where: { $0.id == transaction.accountId }) {
+                                        Text(account.name)
+                                    }
+                                }
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                             }
+                            Spacer()
+                            Text(transaction.amount, format: .currency(code: "USD"))
+                                .foregroundStyle(transaction.isIncome ? .green : .primary)
                         }
-                        .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                            Button {
-                                transactionToEdit = transaction
-                            } label: {
-                                Label("Edit", systemImage: "pencil")
-                            }
-                            .tint(.blue)
+                    }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) {
+                            budget.deleteTransaction(transaction)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
                         }
+                    }
+                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                        Button {
+                            transactionToEdit = transaction
+                        } label: {
+                            Label("Edit", systemImage: "pencil")
+                        }
+                        .tint(.blue)
+                    }
                 }
             }
             .navigationTitle("Transactions")
@@ -50,7 +69,6 @@ struct TransactionsView: View {
         }
     }
     
-    // Move computation to a computed property
     private var sortedTransactions: [Transaction] {
         budget.transactions.sorted { $0.date > $1.date }
     }
