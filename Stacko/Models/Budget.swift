@@ -63,7 +63,12 @@ class Budget: ObservableObject {
             
             DispatchQueue.main.async {
                 if let data = snapshot?.data() {
-                    self?.isSetupComplete = data["isSetupComplete"] as? Bool ?? false
+                    // For guest accounts, always start with setup
+                    if data["isGuest"] as? Bool == true {
+                        self?.isSetupComplete = false
+                    } else {
+                        self?.isSetupComplete = data["isSetupComplete"] as? Bool ?? false
+                    }
                 } else {
                     // Document doesn't exist yet, set default state
                     self?.isSetupComplete = false
@@ -81,7 +86,12 @@ class Budget: ObservableObject {
                 }
                 
                 if let data = snapshot?.data() {
-                    self?.isSetupComplete = data["isSetupComplete"] as? Bool ?? false
+                    // For guest accounts, always start with setup
+                    if data["isGuest"] as? Bool == true {
+                        self?.isSetupComplete = false
+                    } else {
+                        self?.isSetupComplete = data["isSetupComplete"] as? Bool ?? false
+                    }
                     print("Budget: Setup completion state: \(self?.isSetupComplete ?? false)")
                 }
             }
