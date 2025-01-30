@@ -7,6 +7,7 @@ struct MainView: View {
     @State private var showingAddTransaction = false
     @State private var selectedTab = 0
     @State private var previousTab = 0  // Add this to track the previous tab
+    @StateObject private var themeManager = ThemeManager()
     
     var body: some View {
         Group {
@@ -121,6 +122,8 @@ struct MainView: View {
                 }
             }
         }
+        .environmentObject(themeManager)
+        .preferredColorScheme(themeManager.colorScheme)
     }
 }
 

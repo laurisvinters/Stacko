@@ -322,14 +322,89 @@ class Budget: ObservableObject {
     func deleteAccount(_ id: UUID) {
         guard let userId = Auth.auth().currentUser?.uid else { return }
         
-        db.collection("users").document(userId)
+        let batch = db.batch()
+        
+        // Delete the account document
+        let accountRef = db.collection("users").document(userId)
             .collection("accounts")
             .document(id.uuidString)
-            .delete() { error in
-                if let error = error {
-                    print("Error deleting account: \(error.localizedDescription)")
-                }
+        batch.deleteDocument(accountRef)
+        
+        // Find all transactions related to this account
+        let relatedTransactions = transactions.filter { transaction in
+            transaction.accountId == id || transaction.toAccountId == id
+        }
+        
+        // Track affected categories and their allocation adjustments
+        var categoryAdjustments: [UUID: Double] = [:]
+        
+        // Process each transaction
+        for transaction in relatedTransactions {
+            // Delete the transaction
+            let transactionRef = db.collection("users").document(userId)
+                .collection("transactions")
+                .document(transaction.id.uuidString)
+            batch.deleteDocument(transactionRef)
+            
+            // If this is a transfer, update the other account's balance
+            if let otherAccountId = transaction.toAccountId == id ? transaction.accountId : transaction.toAccountId,
+               let otherAccountIndex = accounts.firstIndex(where: { $0.id == otherAccountId }) {
+                var updatedAccount = accounts[otherAccountIndex]
+                let adjustmentAmount = transaction.toAccountId == id ? -transaction.amount : transaction.amount
+                updatedAccount.balance -= adjustmentAmount
+                updatedAccount.clearedBalance -= adjustmentAmount
+                
+                let otherAccountRef = db.collection("users").document(userId)
+                    .collection("accounts")
+                    .document(otherAccountId.uuidString)
+                batch.setData(updatedAccount.toFirestore(), forDocument: otherAccountRef)
             }
+            
+            // If this is not a transfer, track category adjustments
+            if transaction.toAccountId == nil {
+                let categoryId = transaction.categoryId
+                categoryAdjustments[categoryId, default: 0] += transaction.amount
+            }
+        }
+        
+        // Update affected categories
+        for (categoryId, adjustment) in categoryAdjustments {
+            if let (groupIndex, categoryIndex) = findCategory(byId: categoryId) {
+                var updatedGroup = categoryGroups[groupIndex]
+                var updatedCategory = updatedGroup.categories[categoryIndex]
+                
+                // Update spent amount
+                if !updatedCategory.spent.isZero {
+                    updatedCategory.spent += adjustment
+                }
+                
+                // Find and delete related allocations
+                let categoryAllocations = allocations.filter { $0.categoryId == categoryId }
+                for allocation in categoryAllocations {
+                    let allocationRef = db.collection("users").document(userId)
+                        .collection("allocations")
+                        .document(allocation.id.uuidString)
+                    batch.deleteDocument(allocationRef)
+                    
+                    // Update allocated amount
+                    updatedCategory.allocated -= allocation.amount
+                }
+                
+                updatedGroup.categories[categoryIndex] = updatedCategory
+                
+                let groupRef = db.collection("users").document(userId)
+                    .collection("categoryGroups")
+                    .document(updatedGroup.id.uuidString)
+                batch.setData(updatedGroup.toFirestore(), forDocument: groupRef)
+            }
+        }
+        
+        // Commit all changes
+        batch.commit { error in
+            if let error = error {
+                print("Error deleting account and related data: \(error.localizedDescription)")
+            }
+        }
     }
     
     func addTransaction(_ transaction: Transaction) {

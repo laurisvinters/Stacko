@@ -3,6 +3,7 @@ import FirebaseAuth
 
 struct ProfileView: View {
     @ObservedObject var authManager: AuthenticationManager
+    @EnvironmentObject private var themeManager: ThemeManager
     @State private var showingDeleteConfirmation = false
     @State private var showingError = false
     @State private var errorMessage = ""
@@ -18,6 +19,19 @@ struct ProfileView: View {
                 if let user = authManager.currentUser {
                     LabeledContent("Name", value: user.name)
                     LabeledContent("Email", value: user.email)
+                }
+            }
+            
+            Section("Appearance") {
+                Button {
+                    themeManager.toggleTheme()
+                } label: {
+                    HStack {
+                        Text(themeManager.isDarkMode ? "Dark Mode" : "Light Mode")
+                        Spacer()
+                        Image(systemName: themeManager.isDarkMode ? "moon.fill" : "sun.max.fill")
+                            .foregroundStyle(themeManager.isDarkMode ? .blue : .yellow)
+                    }
                 }
             }
             
@@ -74,6 +88,7 @@ struct ProfileView: View {
         }
         .navigationTitle("Profile")
         .disabled(isLoading)
+        .preferredColorScheme(themeManager.colorScheme)
         .alert("Delete Account", isPresented: $showingDeleteConfirmation) {
             SecureField("Enter Password", text: $password)
             Button("Cancel", role: .cancel) { 
@@ -105,6 +120,15 @@ struct ProfileView: View {
             }
         } message: {
             Text("Enter your current password to receive a password reset link.")
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                NavigationLink {
+                    ProfileView(authManager: authManager)
+                } label: {
+                    Label("Profile", systemImage: "person.circle")
+                }
+            }
         }
     }
     

@@ -10,23 +10,25 @@ import FirebaseCore
 
 @main
 struct StackoApp: App {
-    @StateObject private var budget = Budget()
-    @StateObject private var setupCoordinator = SetupCoordinator()
+    private let budget: Budget
+    private let setupCoordinator: SetupCoordinator
+    @StateObject private var themeManager = ThemeManager()
     @StateObject private var authManager: AuthenticationManager
     
     init() {
         // Configure Firebase
         FirebaseApp.configure()
         
-        let budgetInstance = Budget()
-        let coordinator = SetupCoordinator()
+        // Create instances first
+        self.budget = Budget()
+        self.setupCoordinator = SetupCoordinator()
         
-        _budget = StateObject(wrappedValue: budgetInstance)
-        _setupCoordinator = StateObject(wrappedValue: coordinator)
-        _authManager = StateObject(wrappedValue: AuthenticationManager(
-            budget: budgetInstance,
-            setupCoordinator: coordinator
-        ))
+        // Then initialize auth manager with those instances
+        let auth = AuthenticationManager(
+            budget: self.budget,
+            setupCoordinator: self.setupCoordinator
+        )
+        _authManager = StateObject(wrappedValue: auth)
     }
     
     var body: some Scene {
@@ -36,6 +38,8 @@ struct StackoApp: App {
                 budget: budget,
                 setupCoordinator: setupCoordinator
             )
+            .environmentObject(themeManager)
+            .preferredColorScheme(themeManager.colorScheme)
         }
     }
 }
