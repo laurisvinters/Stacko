@@ -34,13 +34,6 @@ struct TransactionsView: View {
             .navigationTitle("Transactions")
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    NavigationLink {
-                        TransactionTemplatesView(budget: budget)
-                    } label: {
-                        Label("Templates", systemImage: "doc.on.doc")
-                    }
-                }
-                ToolbarItem(placement: .navigationBarLeading) {
                     Button {
                         showingAddTransaction = true
                     } label: {

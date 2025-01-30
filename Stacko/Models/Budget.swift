@@ -8,7 +8,6 @@ class Budget: ObservableObject {
     @Published private(set) var accounts: [Account] = []
     @Published private(set) var categoryGroups: [CategoryGroup] = []
     @Published private(set) var transactions: [Transaction] = []
-    @Published private(set) var templates: [TransactionTemplate] = []
     @Published private(set) var allocations: [Allocation] = []
     @Published private(set) var isSetupComplete: Bool? = nil
     @Published private(set) var availableToBudget: Double = 0.0
@@ -28,7 +27,6 @@ class Budget: ObservableObject {
         accounts = []
         categoryGroups = []
         transactions = []
-        templates = []
         allocations = []
         isSetupComplete = nil
     }
@@ -179,25 +177,6 @@ class Budget: ObservableObject {
                 print("Budget: Updated transactions array with \(self?.transactions.count ?? 0) transactions")
             }
         listeners.append(transactionsListener)
-            
-        // Listen for templates changes
-        let templatesListener = db.collection("users").document(userId).collection("templates")
-            .addSnapshotListener { [weak self] snapshot, error in
-                if let error = error {
-                    print("Budget: Error fetching templates: \(error.localizedDescription)")
-                    return
-                }
-                
-                guard let documents = snapshot?.documents else {
-                    print("Budget: No template documents found")
-                    return
-                }
-                
-                self?.templates = documents.compactMap { document in
-                    TransactionTemplate.fromFirestore(document.data())
-                }
-            }
-        listeners.append(templatesListener)
         
         // Listen for allocations changes
         let allocationsListener = db.collection("users").document(userId).collection("allocations")
@@ -516,35 +495,6 @@ class Budget: ObservableObject {
                     print("Error reconciling account: \(error.localizedDescription)")
                 }
             }
-    }
-    
-    func addTemplate(_ template: TransactionTemplate) {
-        guard let userId = Auth.auth().currentUser?.uid else { return }
-        
-        db.collection("users").document(userId)
-            .collection("templates")
-            .document(template.id.uuidString)
-            .setData(template.toFirestore()) { error in
-                if let error = error {
-                    print("Error adding template: \(error.localizedDescription)")
-                }
-            }
-    }
-    
-    func createTransactionFromTemplate(_ template: TransactionTemplate, date: Date = Date()) {
-        let transaction = Transaction(
-            id: UUID(),
-            date: date,
-            payee: template.payee,
-            categoryId: template.categoryId,
-            amount: template.amount,
-            note: nil,
-            isIncome: template.isIncome,
-            accountId: accounts.first?.id ?? UUID(),
-            toAccountId: nil
-        )
-        
-        addTransaction(transaction)
     }
     
     func createTransfer(fromAccountId: UUID, toAccountId: UUID, amount: Double, date: Date, note: String?) {
