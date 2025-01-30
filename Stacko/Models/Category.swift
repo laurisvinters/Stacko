@@ -102,7 +102,9 @@ struct Target {
         case .custom(let amount, let interval):
             data = [
                 "type": "custom",
-                "amount": amount
+                "amount": amount,
+                "intervalType": "",  // Initialize with empty string
+                "intervalCount": 0   // Initialize with 0
             ]
             
             switch interval {
@@ -118,6 +120,7 @@ struct Target {
             case .monthlyOnDay(let day):
                 data["intervalType"] = "monthlyOnDay"
                 data["day"] = day
+                data["intervalCount"] = 1  // Monthly is always 1
             }
             
         case .noDate(let amount):

@@ -10,6 +10,7 @@ struct QuickAddTransactionSheet: View {
         case payee
     }
     
+    let categoryId: UUID?
     let existingTransaction: Transaction?
     
     @State private var amount = ""
@@ -21,9 +22,46 @@ struct QuickAddTransactionSheet: View {
     @State private var date = Date()
     @State private var showCategoryPicker = false
     
-    init(budget: Budget, existingTransaction: Transaction? = nil) {
+    // New state variables for alerts
+    @State private var showInsufficientFundsAlert = false
+    @State private var showAllocationAlert = false
+    @State private var proceedWithoutAllocation = false
+    
+    private var transactionAmount: Double {
+        Double(amount) ?? 0
+    }
+    
+    private var selectedCategory: Category? {
+        guard let categoryId = selectedCategoryId else { return nil }
+        for group in budget.categoryGroups {
+            if let category = group.categories.first(where: { $0.id == categoryId }) {
+                return category
+            }
+        }
+        return nil
+    }
+    
+    private var hasInsufficientFunds: Bool {
+        guard let category = selectedCategory, !isIncome else { return false }
+        let available = category.available
+        return transactionAmount > available
+    }
+    
+    private var canAllocateMore: Bool {
+        let totalAvailable = budget.accounts.filter { !$0.isArchived }.reduce(0) { $0 + $1.balance }
+        var totalAllocated: Double = 0
+        for group in budget.categoryGroups {
+            for category in group.categories {
+                totalAllocated += category.allocated
+            }
+        }
+        return totalAvailable > totalAllocated + transactionAmount
+    }
+    
+    init(budget: Budget, existingTransaction: Transaction? = nil, categoryId: UUID? = nil) {
         self.budget = budget
         self.existingTransaction = existingTransaction
+        self.categoryId = categoryId
         
         if let transaction = existingTransaction {
             _amount = State(initialValue: String(abs(transaction.amount)))
@@ -32,25 +70,15 @@ struct QuickAddTransactionSheet: View {
             _selectedAccountId = State(initialValue: transaction.accountId)
             _isIncome = State(initialValue: transaction.isIncome)
             _date = State(initialValue: transaction.date)
+        } else {
+            // For new transactions, use the provided categoryId if available
+            _selectedCategoryId = State(initialValue: categoryId)
         }
     }
     
     private var sortedCategoryGroups: [CategoryGroup] {
-        let incomeGroup = budget.categoryGroups.first { $0.name == "Income" }
-        let otherGroups = budget.categoryGroups.filter { $0.name != "Income" }
-        
-        if isIncome {
-            if let incomeGroup = incomeGroup {
-                return showAllCategories ? [incomeGroup] + otherGroups : [incomeGroup]
-            }
-            return otherGroups
-        } else {
-            // Always include Income group for Expense transactions
-            if let incomeGroup = incomeGroup {
-                return [incomeGroup] + otherGroups
-            }
-            return otherGroups
-        }
+        // Always include all groups, regardless of transaction type
+        return budget.categoryGroups
     }
     
     var body: some View {
@@ -62,11 +90,7 @@ struct QuickAddTransactionSheet: View {
                         Text("Income").tag(true)
                     }
                     .pickerStyle(.segmented)
-                    .onChange(of: isIncome) { _ in
-                        // Reset category selection when switching between income/expense
-                        selectedCategoryId = nil
-                        showAllCategories = false
-                    }
+                    // Remove the onChange modifier that was resetting the category
                 }
                 
                 Section {
@@ -143,7 +167,7 @@ struct QuickAddTransactionSheet: View {
                     DatePicker("Date", selection: $date, displayedComponents: .date)
                 }
             }
-            .navigationTitle(existingTransaction != nil ? "Edit Transaction" : "Quick Add")
+            .navigationTitle(existingTransaction == nil ? "Add Transaction" : "Edit Transaction")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -153,14 +177,22 @@ struct QuickAddTransactionSheet: View {
                 }
                 
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(existingTransaction != nil ? "Save" : "Add") {
-                        if existingTransaction != nil {
-                            updateTransaction()
+                    Button(existingTransaction == nil ? "Add" : "Save") {
+                        if !isIncome && hasInsufficientFunds {
+                            if canAllocateMore {
+                                showAllocationAlert = true
+                            } else {
+                                showInsufficientFundsAlert = true
+                            }
                         } else {
-                            saveTransaction()
+                            if existingTransaction == nil {
+                                saveTransaction()
+                            } else {
+                                updateTransaction()
+                            }
                         }
                     }
-                    .disabled(!isValid)
+                    .disabled(amount.isEmpty || Double(amount) == nil || selectedCategoryId == nil || selectedAccountId == nil)
                 }
                 
                 ToolbarItem(placement: .keyboard) {
@@ -169,17 +201,46 @@ struct QuickAddTransactionSheet: View {
                     }
                 }
             }
-            .onAppear {
-                // Set default account
-                if selectedAccountId == nil {
-                    selectedAccountId = budget.accounts.first?.id
-                }
-                
-                // Set initial focus to amount field
-                focusedField = .amount
-            }
         }
         .interactiveDismissDisabled()
+        .alert("Insufficient Funds", isPresented: $showInsufficientFundsAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Continue Anyway", role: .destructive) {
+                if existingTransaction == nil {
+                    saveTransaction()
+                } else {
+                    updateTransaction()
+                }
+            }
+        } message: {
+            Text("This category doesn't have enough allocated funds. It's recommended to reallocate funds from other categories first.")
+        }
+        .alert("Allocate Funds?", isPresented: $showAllocationAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Skip", role: .destructive) {
+                if existingTransaction == nil {
+                    saveTransaction()
+                } else {
+                    updateTransaction()
+                }
+            }
+            Button("Allocate", role: .none) {
+                if let category = selectedCategory {
+                    // First allocate funds
+                    budget.allocateToBudget(amount: transactionAmount, categoryId: category.id)
+                    // Wait a moment for allocation to complete before adding transaction
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        if existingTransaction == nil {
+                            saveTransaction()
+                        } else {
+                            updateTransaction()
+                        }
+                    }
+                }
+            }
+        } message: {
+            Text("This category needs more funds. Would you like to allocate \(transactionAmount.formatted(.currency(code: "USD"))) to this category?")
+        }
     }
     
     private var selectedCategoryName: String {
@@ -208,12 +269,16 @@ struct QuickAddTransactionSheet: View {
             return
         }
         
+        // For expenses, we store negative amounts
+        // For income, we store positive amounts
+        let transactionAmount = isIncome ? abs(amount) : -abs(amount)
+        
         let transaction = Transaction(
             id: UUID(),
             date: date,
             payee: payee,
             categoryId: categoryId,
-            amount: isIncome ? amount : -amount,
+            amount: transactionAmount,
             note: nil,
             isIncome: isIncome,
             accountId: accountId,
@@ -232,12 +297,16 @@ struct QuickAddTransactionSheet: View {
             return
         }
         
+        // For expenses, we store negative amounts
+        // For income, we store positive amounts
+        let transactionAmount = isIncome ? abs(amount) : -abs(amount)
+        
         let updatedTransaction = Transaction(
             id: existingTransaction.id,
             date: date,
             payee: payee,
             categoryId: categoryId,
-            amount: isIncome ? amount : -amount,
+            amount: transactionAmount,
             note: existingTransaction.note,
             isIncome: isIncome,
             accountId: accountId,

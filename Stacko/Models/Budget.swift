@@ -374,6 +374,8 @@ class Budget: ObservableObject {
             var updatedGroup = categoryGroups[groupIndex]
             // For income, we don't affect the spent amount
             if !transaction.isIncome {
+                // For expenses, transaction.amount is already negative
+                // We want to increase spent by the positive amount
                 updatedGroup.categories[categoryIndex].spent -= transaction.amount
             }
             
@@ -556,7 +558,7 @@ class Budget: ObservableObject {
             date: date,
             payee: "Transfer",
             categoryId: categoryGroups.first?.categories.first?.id ?? UUID(),
-            amount: amount,
+            amount: -amount,
             note: note,
             isIncome: false,
             accountId: fromAccountId,
@@ -811,6 +813,84 @@ class Budget: ObservableObject {
                 print("Budget: Error updating transaction: \(error.localizedDescription)")
             } else {
                 print("Budget: Successfully updated transaction \(oldTransaction.id)")
+            }
+        }
+    }
+    
+    func deleteAllocation(_ allocation: Allocation) {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            print("Budget: Cannot delete allocation - no user ID")
+            return
+        }
+        
+        guard let (groupIndex, categoryIndex) = findCategory(byId: allocation.categoryId) else { return }
+        
+        let batch = db.batch()
+        
+        // Delete allocation document
+        let allocationRef = db.collection("users").document(userId)
+            .collection("allocations")
+            .document(allocation.id.uuidString)
+        batch.deleteDocument(allocationRef)
+        
+        // Update category's allocated amount
+        var updatedGroup = categoryGroups[groupIndex]
+        updatedGroup.categories[categoryIndex].allocated -= allocation.amount
+        
+        let groupRef = db.collection("users").document(userId)
+            .collection("categoryGroups")
+            .document(updatedGroup.id.uuidString)
+        batch.setData(updatedGroup.toFirestore(), forDocument: groupRef)
+        
+        // Commit all changes
+        batch.commit { error in
+            if let error = error {
+                print("Budget: Error deleting allocation: \(error.localizedDescription)")
+            } else {
+                print("Budget: Successfully deleted allocation \(allocation.id)")
+            }
+        }
+    }
+    
+    func updateAllocation(_ oldAllocation: Allocation, with newAmount: Double) {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            print("Budget: Cannot update allocation - no user ID")
+            return
+        }
+        
+        guard let (groupIndex, categoryIndex) = findCategory(byId: oldAllocation.categoryId) else { return }
+        
+        let batch = db.batch()
+        
+        // Create new allocation with updated amount
+        let updatedAllocation = Allocation(
+            id: oldAllocation.id,
+            date: oldAllocation.date,
+            categoryId: oldAllocation.categoryId,
+            amount: newAmount
+        )
+        
+        // Update allocation document
+        let allocationRef = db.collection("users").document(userId)
+            .collection("allocations")
+            .document(oldAllocation.id.uuidString)
+        batch.setData(updatedAllocation.toFirestore(), forDocument: allocationRef)
+        
+        // Update category's allocated amount
+        var updatedGroup = categoryGroups[groupIndex]
+        updatedGroup.categories[categoryIndex].allocated = updatedGroup.categories[categoryIndex].allocated - oldAllocation.amount + newAmount
+        
+        let groupRef = db.collection("users").document(userId)
+            .collection("categoryGroups")
+            .document(updatedGroup.id.uuidString)
+        batch.setData(updatedGroup.toFirestore(), forDocument: groupRef)
+        
+        // Commit all changes
+        batch.commit { error in
+            if let error = error {
+                print("Budget: Error updating allocation: \(error.localizedDescription)")
+            } else {
+                print("Budget: Successfully updated allocation \(oldAllocation.id)")
             }
         }
     }
