@@ -211,11 +211,11 @@ struct CategoryDetailSheet: View {
     @ViewBuilder
     private func TransactionActivityRow(activity: (date: Date, isTransaction: Bool, amount: Double)) -> some View {
         HStack {
-            Image(systemName: "arrow.up.right")
-                .foregroundColor(.red)
+            Image(systemName: activity.amount >= 0 ? "arrow.up.right" : "arrow.down.left")
+                .foregroundColor(activity.amount >= 0 ? .green : .red)
             
             VStack(alignment: .leading) {
-                Text("Expense")
+                Text(activity.amount >= 0 ? "Income" : "Expense")
                 Text(activity.date.formatted(date: .numeric, time: .shortened))
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -223,8 +223,8 @@ struct CategoryDetailSheet: View {
             
             Spacer()
             
-            Text(activity.amount, format: .currency(code: "USD"))
-                .foregroundColor(.red)
+            Text(abs(activity.amount), format: .currency(code: "USD"))
+                .foregroundColor(activity.amount >= 0 ? .green : .red)
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button(role: .destructive) {

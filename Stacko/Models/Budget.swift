@@ -369,11 +369,13 @@ class Budget: ObservableObject {
             .document(transaction.id.uuidString)
         batch.setData(transaction.toFirestore(), forDocument: transactionRef)
         
-        // Update only the category's spent amount
+        // Update category's spent amount for expenses or allocated amount for income
         if let (groupIndex, categoryIndex) = findCategory(byId: transaction.categoryId) {
             var updatedGroup = categoryGroups[groupIndex]
-            // For income, we don't affect the spent amount
-            if !transaction.isIncome {
+            if transaction.isIncome {
+                // For income, increase the allocated amount
+                updatedGroup.categories[categoryIndex].allocated += transaction.amount
+            } else {
                 // For expenses, transaction.amount is already negative
                 // We want to increase spent by the positive amount
                 updatedGroup.categories[categoryIndex].spent -= transaction.amount
