@@ -11,6 +11,7 @@ class Budget: ObservableObject {
     @Published private(set) var templates: [TransactionTemplate] = []
     @Published private(set) var allocations: [Allocation] = []
     @Published private(set) var isSetupComplete: Bool? = nil
+    @Published var isEditingBudget: Bool = false
     @Published private(set) var availableToBudget: Double = 0.0
     
     private var listeners: [ListenerRegistration] = []
@@ -893,6 +894,94 @@ class Budget: ObservableObject {
                 print("Budget: Error updating allocation: \(error.localizedDescription)")
             } else {
                 print("Budget: Successfully updated allocation \(oldAllocation.id)")
+            }
+        }
+    }
+    
+    func reorderGroups(from source: IndexSet, to destination: Int) {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        
+        // Update local state
+        var updatedGroups = categoryGroups
+        updatedGroups.move(fromOffsets: source, toOffset: destination)
+        categoryGroups = updatedGroups
+        
+        // Update Firestore
+        let batch = db.batch()
+        
+        // Update all affected groups
+        for (index, group) in updatedGroups.enumerated() {
+            let groupRef = db.collection("users").document(userId)
+                .collection("categoryGroups")
+                .document(group.id.uuidString)
+            
+            var groupData = group.toFirestore()
+            groupData["order"] = index  // Add order field
+            
+            batch.setData(groupData, forDocument: groupRef)
+        }
+        
+        // Commit the batch
+        batch.commit { error in
+            if let error = error {
+                print("Error reordering groups: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    func reorderCategories(in groupId: UUID, from source: IndexSet, to destination: Int) {
+        guard let userId = Auth.auth().currentUser?.uid,
+              let groupIndex = categoryGroups.firstIndex(where: { $0.id == groupId }) else { return }
+        
+        // Update local state
+        var updatedGroup = categoryGroups[groupIndex]
+        updatedGroup.categories.move(fromOffsets: source, toOffset: destination)
+        categoryGroups[groupIndex] = updatedGroup
+        
+        // Update Firestore
+        let groupRef = db.collection("users").document(userId)
+            .collection("categoryGroups")
+            .document(groupId.uuidString)
+        
+        groupRef.setData(updatedGroup.toFirestore()) { error in
+            if let error = error {
+                print("Error reordering categories: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    func moveCategory(from sourceGroup: UUID, at sourceIndices: IndexSet, to destinationGroup: UUID, at destination: Int) {
+        guard let userId = Auth.auth().currentUser?.uid,
+              let sourceGroupIndex = categoryGroups.firstIndex(where: { $0.id == sourceGroup }),
+              let destGroupIndex = categoryGroups.firstIndex(where: { $0.id == destinationGroup }) else { return }
+        
+        // Update local state
+        var updatedSourceGroup = categoryGroups[sourceGroupIndex]
+        var updatedDestGroup = categoryGroups[destGroupIndex]
+        
+        let movedCategories = sourceIndices.map { updatedSourceGroup.categories[$0] }
+        updatedDestGroup.categories.insert(contentsOf: movedCategories, at: destination)
+        updatedSourceGroup.categories.remove(atOffsets: sourceIndices)
+        
+        categoryGroups[sourceGroupIndex] = updatedSourceGroup
+        categoryGroups[destGroupIndex] = updatedDestGroup
+        
+        // Update Firestore
+        let batch = db.batch()
+        
+        let sourceRef = db.collection("users").document(userId)
+            .collection("categoryGroups")
+            .document(sourceGroup.uuidString)
+        batch.setData(updatedSourceGroup.toFirestore(), forDocument: sourceRef)
+        
+        let destRef = db.collection("users").document(userId)
+            .collection("categoryGroups")
+            .document(destinationGroup.uuidString)
+        batch.setData(updatedDestGroup.toFirestore(), forDocument: destRef)
+        
+        batch.commit { error in
+            if let error = error {
+                print("Error moving categories between groups: \(error.localizedDescription)")
             }
         }
     }

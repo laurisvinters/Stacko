@@ -5,98 +5,233 @@ struct BudgetView: View {
     @State private var selectedCategory: Category?
     @State private var showingAddCategory = false
     @State private var showingAddGroup = false
+    @State private var isRearrangingGroups = false
+    @State private var editMode: EditMode = .inactive
     
-    // Filter out Income group
     private var nonIncomeGroups: [CategoryGroup] {
-        budget.categoryGroups.filter { $0.name != "Income" }
+        budget.categoryGroups.filter { group in
+            group.name != "Income"
+        }
+    }
+    
+    private func calculateTotalBalance() -> Double {
+        budget.accounts
+            .filter { !$0.isArchived }
+            .reduce(0.0) { sum, account in
+                sum + account.balance
+            }
+    }
+    
+    private func calculateTotalAllocated() -> Double {
+        var total = 0.0
+        for group in nonIncomeGroups {
+            for category in group.categories {
+                let effectiveAllocation = max(0, category.allocated - category.spent)
+                total += effectiveAllocation
+            }
+        }
+        return total
+    }
+    
+    private var availableToBudget: Double {
+        calculateTotalBalance() - calculateTotalAllocated()
+    }
+    
+    private func groupTotal(_ group: CategoryGroup) -> Double {
+        var total = 0.0
+        for category in group.categories {
+            total += category.allocated
+        }
+        return total
     }
     
     var body: some View {
+        budgetListView
+            .listStyle(.insetGrouped)
+            .toolbar { toolbarContent }
+            .navigationTitle("Budget")
+            .environment(\.editMode, .constant(isRearrangingGroups ? .active : editMode))
+            .sheet(item: $selectedCategory) { category in
+                CategoryDetailSheet(budget: budget, category: category)
+            }
+            .sheet(isPresented: $showingAddCategory) {
+                AddCategorySheet(budget: budget)
+            }
+            .sheet(isPresented: $showingAddGroup) {
+                AddGroupSheet(budget: budget)
+            }
+    }
+    
+    private var budgetListView: some View {
         List {
+            if !isRearrangingGroups {
+                availableToBudgetSection
+                categorySections
+            } else {
+                groupReorderingView
+            }
+        }
+    }
+    
+    private var availableToBudgetSection: some View {
+        Section {
+            HStack {
+                Text("Available to Budget")
+                    .font(.headline)
+                Spacer()
+                Text(availableToBudget, format: .currency(code: "USD"))
+                    .foregroundStyle(availableToBudget >= 0 ? Color.primary : Color.red)
+            }
+        }
+    }
+    
+    private var categorySections: some View {
+        ForEach(nonIncomeGroups) { group in
             Section {
-                HStack {
-                    Text("Available to Budget")
-                        .font(.headline)
-                    Spacer()
-                    Text(availableToBudget, format: .currency(code: "USD"))
-                        .foregroundStyle(availableToBudget >= 0 ? Color.primary : Color.red)
+                categoryList(for: group)
+                if !group.categories.isEmpty {
+                    groupTotalRow(for: group)
+                }
+            } header: {
+                groupHeader(for: group)
+            }
+        }
+    }
+    
+    private func categoryList(for group: CategoryGroup) -> some View {
+        ForEach(group.categories) { category in
+            CategoryRow(category: category)
+                .onTapGesture {
+                    if editMode == .inactive {
+                        selectedCategory = category
+                    }
+                }
+        }
+        .onMove { source, destination in
+            budget.reorderCategories(in: group.id, from: source, to: destination)
+        }
+    }
+    
+    private func groupHeader(for group: CategoryGroup) -> some View {
+        HStack {
+            if let emoji = group.emoji {
+                Text(emoji)
+            }
+            Text(group.name)
+                .font(.headline)
+                .foregroundStyle(.secondary)
+        }
+    }
+    
+    private func groupTotalRow(for group: CategoryGroup) -> some View {
+        HStack {
+            Text("Total")
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(groupTotal(group), format: .currency(code: "USD"))
+                .foregroundStyle(.secondary)
+        }
+    }
+    
+    private var groupReorderingView: some View {
+        ForEach(nonIncomeGroups) { group in
+            HStack {
+                if let emoji = group.emoji {
+                    Text(emoji)
+                }
+                Text(group.name)
+                    .font(.headline)
+                Spacer()
+                Image(systemName: "line.3.horizontal")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .onMove { source, destination in
+            budget.reorderGroups(from: source, to: destination)
+        }
+    }
+    
+    private var toolbarContent: some ToolbarContent {
+        Group {
+            ToolbarItem(placement: .navigationBarLeading) {
+                HStack(spacing: 16) {
+                    if !isRearrangingGroups {
+                        if editMode == .inactive {
+                            Menu {
+                                Button("Add Category") {
+                                    showingAddCategory = true
+                                }
+                                Button("Add Group") {
+                                    showingAddGroup = true
+                                }
+                            } label: {
+                                Label("Add", systemImage: "plus")
+                            }
+                        }
+                        
+                        Button(editMode == .active ? "Done" : "Edit") {
+                            withAnimation {
+                                editMode = editMode == .active ? .inactive : .active
+                                budget.isEditingBudget = editMode == .active
+                            }
+                        }
+                    } else {
+                        Button("Done") {
+                            withAnimation {
+                                isRearrangingGroups = false
+                                editMode = .inactive
+                                budget.isEditingBudget = false
+                            }
+                        }
+                    }
                 }
             }
             
-            ForEach(nonIncomeGroups) { group in
-                Section(group.name) {
-                    ForEach(group.categories) { category in
-                        CategoryRow(category: category)
-                            .onTapGesture {
-                                selectedCategory = category
-                            }
-                    }
-                    
-                    if !group.categories.isEmpty {
-                        HStack {
-                            Text("Total")
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Text(groupTotal(group), format: .currency(code: "USD"))
-                                .foregroundStyle(.secondary)
+            ToolbarItem(placement: .navigationBarTrailing) {
+                if editMode == .active && !isRearrangingGroups {
+                    Button("Rearrange Groups") {
+                        withAnimation {
+                            isRearrangingGroups = true
                         }
                     }
                 }
             }
         }
-        .navigationTitle("Budget")
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Menu {
-                    Button("Add Category") {
-                        showingAddCategory = true
-                    }
-                    Button("Add Group") {
-                        showingAddGroup = true
-                    }
-                } label: {
-                    Label("Add", systemImage: "plus")
-                }
+    }
+}
+
+// Drop delegate for handling category moves between groups
+struct CategoryDropDelegate: DropDelegate {
+    let destinationGroupId: UUID
+    let budget: Budget
+    let categoryGroups: [CategoryGroup]
+    
+    func performDrop(info: DropInfo) -> Bool {
+        guard let itemProvider = info.itemProviders(for: [.text]).first else { return false }
+        
+        itemProvider.loadObject(ofClass: NSString.self) { (categoryId, error) in
+            guard let categoryIdString = categoryId as? String,
+                  let categoryId = UUID(uuidString: categoryIdString),
+                  let sourceGroup = categoryGroups.first(where: { group in
+                      group.categories.contains { $0.id == categoryId }
+                  }),
+                  let categoryIndex = sourceGroup.categories.firstIndex(where: { $0.id == categoryId })
+            else { return }
+            
+            DispatchQueue.main.async {
+                budget.moveCategory(
+                    from: sourceGroup.id,
+                    at: IndexSet(integer: categoryIndex),
+                    to: destinationGroupId,
+                    at: 0  // Insert at the beginning of the destination group
+                )
             }
         }
-        .sheet(item: $selectedCategory) { category in
-            CategoryDetailSheet(budget: budget, category: category)
-        }
-        .sheet(isPresented: $showingAddCategory) {
-            AddCategorySheet(budget: budget)
-        }
-        .sheet(isPresented: $showingAddGroup) {
-            AddGroupSheet(budget: budget)
-        }
+        return true
     }
     
-    private var availableToBudget: Double {
-        // Get total balance from all non-archived accounts
-        let totalBalance = budget.accounts
-            .filter { !$0.isArchived }
-            .reduce(0.0) { sum, account in
-                sum + account.balance
-            }
-        
-        // Subtract all allocated amounts from non-income categories
-        let totalAllocated = nonIncomeGroups
-            .flatMap(\.categories)
-            .reduce(0.0) { sum, category in
-                // We need to consider both allocated and spent amounts
-                // If money is spent from a category, we should reduce the allocated amount
-                // to avoid double-counting (since spent money is already deducted from account balance)
-                let effectiveAllocation = max(0, category.allocated - category.spent)
-                return sum + effectiveAllocation
-            }
-        
-        return totalBalance - totalAllocated
-    }
-    
-    private func groupTotal(_ group: CategoryGroup) -> Double {
-        // Sum of allocated amounts in the group
-        group.categories.reduce(0) { sum, category in
-            sum + category.allocated
-        }
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        return DropProposal(operation: .move)
     }
 }
 
@@ -184,4 +319,4 @@ struct CategoryRow: View {
             return "Target: \(formatter.string(from: NSNumber(value: amount)) ?? "$0")"
         }
     }
-} 
+}

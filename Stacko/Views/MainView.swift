@@ -27,10 +27,12 @@ struct MainView: View {
                         BudgetView(budget: budget)
                             .toolbar {
                                 ToolbarItem(placement: .navigationBarTrailing) {
-                                    NavigationLink {
-                                        ProfileView(authManager: authManager)
-                                    } label: {
-                                        Label("Profile", systemImage: "person.circle")
+                                    if budget.isEditingBudget == false {
+                                        NavigationLink {
+                                            ProfileView(authManager: authManager)
+                                        } label: {
+                                            Label("Profile", systemImage: "person.circle")
+                                        }
                                     }
                                 }
                             }
@@ -46,10 +48,12 @@ struct MainView: View {
                         AccountsView(budget: budget)
                             .toolbar {
                                 ToolbarItem(placement: .navigationBarTrailing) {
-                                    NavigationLink {
-                                        ProfileView(authManager: authManager)
-                                    } label: {
-                                        Label("Profile", systemImage: "person.circle")
+                                    if budget.isEditingBudget == false {
+                                        NavigationLink {
+                                            ProfileView(authManager: authManager)
+                                        } label: {
+                                            Label("Profile", systemImage: "person.circle")
+                                        }
                                     }
                                 }
                             }
@@ -74,10 +78,12 @@ struct MainView: View {
                         TransactionsView(budget: budget)
                             .toolbar {
                                 ToolbarItem(placement: .navigationBarTrailing) {
-                                    NavigationLink {
-                                        ProfileView(authManager: authManager)
-                                    } label: {
-                                        Label("Profile", systemImage: "person.circle")
+                                    if budget.isEditingBudget == false {
+                                        NavigationLink {
+                                            ProfileView(authManager: authManager)
+                                        } label: {
+                                            Label("Profile", systemImage: "person.circle")
+                                        }
                                     }
                                 }
                             }
@@ -93,10 +99,12 @@ struct MainView: View {
                         ReportsView(budget: budget)
                             .toolbar {
                                 ToolbarItem(placement: .navigationBarTrailing) {
-                                    NavigationLink {
-                                        ProfileView(authManager: authManager)
-                                    } label: {
-                                        Label("Profile", systemImage: "person.circle")
+                                    if budget.isEditingBudget == false {
+                                        NavigationLink {
+                                            ProfileView(authManager: authManager)
+                                        } label: {
+                                            Label("Profile", systemImage: "person.circle")
+                                        }
                                     }
                                 }
                             }
