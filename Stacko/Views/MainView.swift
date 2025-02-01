@@ -6,7 +6,8 @@ struct MainView: View {
     @ObservedObject var setupCoordinator: SetupCoordinator
     @State private var showingAddTransaction = false
     @State private var selectedTab = 0
-    @State private var previousTab = 0  // Add this to track the previous tab
+    @State private var previousTab = 0
+    @State private var isEditing = false
     
     var body: some View {
         Group {
@@ -24,10 +25,10 @@ struct MainView: View {
                 // Regular app content
                 TabView(selection: $selectedTab) {
                     NavigationStack {
-                        BudgetView(budget: budget)
+                        BudgetView(budget: budget, isEditing: $isEditing)
                             .toolbar {
                                 ToolbarItem(placement: .navigationBarTrailing) {
-                                    if budget.isEditingBudget == false {
+                                    if !isEditing {
                                         NavigationLink {
                                             ProfileView(authManager: authManager)
                                         } label: {
@@ -48,7 +49,7 @@ struct MainView: View {
                         AccountsView(budget: budget)
                             .toolbar {
                                 ToolbarItem(placement: .navigationBarTrailing) {
-                                    if budget.isEditingBudget == false {
+                                    if !isEditing {
                                         NavigationLink {
                                             ProfileView(authManager: authManager)
                                         } label: {
@@ -78,7 +79,7 @@ struct MainView: View {
                         TransactionsView(budget: budget)
                             .toolbar {
                                 ToolbarItem(placement: .navigationBarTrailing) {
-                                    if budget.isEditingBudget == false {
+                                    if !isEditing {
                                         NavigationLink {
                                             ProfileView(authManager: authManager)
                                         } label: {
@@ -99,7 +100,7 @@ struct MainView: View {
                         ReportsView(budget: budget)
                             .toolbar {
                                 ToolbarItem(placement: .navigationBarTrailing) {
-                                    if budget.isEditingBudget == false {
+                                    if !isEditing {
                                         NavigationLink {
                                             ProfileView(authManager: authManager)
                                         } label: {

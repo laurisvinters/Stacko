@@ -11,10 +11,10 @@ class Budget: ObservableObject {
     @Published private(set) var templates: [TransactionTemplate] = []
     @Published private(set) var allocations: [Allocation] = []
     @Published private(set) var isSetupComplete: Bool? = nil
-    @Published var isEditingBudget: Bool = false
     @Published private(set) var availableToBudget: Double = 0.0
     
     private var listeners: [ListenerRegistration] = []
+    private var isReorderingGroups = false
     
     init() {
         // Listeners will be set up by AuthenticationManager when user is ready
@@ -133,9 +133,17 @@ class Budget: ObservableObject {
         
         // Listen for category groups changes
         let groupsListener = db.collection("users").document(userId).collection("categoryGroups")
+            .order(by: "order")
             .addSnapshotListener { [weak self] snapshot, error in
+                guard let self = self else { return }
+                
                 if let error = error {
                     print("Budget: Error fetching category groups: \(error.localizedDescription)")
+                    return
+                }
+                
+                // Skip updates while reordering to prevent race conditions
+                if self.isReorderingGroups {
                     return
                 }
                 
@@ -145,14 +153,18 @@ class Budget: ObservableObject {
                 }
                 
                 print("Budget: Received \(documents.count) category group documents")
-                self?.categoryGroups = documents.compactMap { document in
+                let groups = documents.compactMap { document -> CategoryGroup? in
                     guard let group = CategoryGroup.fromFirestore(document.data()) else {
                         print("Budget: Failed to parse category group document \(document.documentID)")
                         return nil
                     }
                     return group
                 }
-                print("Budget: Updated categoryGroups array with \(self?.categoryGroups.count ?? 0) groups")
+                
+                DispatchQueue.main.async {
+                    self.categoryGroups = groups
+                    print("Budget: Updated categoryGroups array with \(groups.count) groups")
+                }
             }
         listeners.append(groupsListener)
             
@@ -355,7 +367,8 @@ class Budget: ObservableObject {
     }
     
     func addTransaction(_ transaction: Transaction) {
-        guard let userId = Auth.auth().currentUser?.uid else {
+        guard let userId = Auth.auth().currentUser?.uid,
+              let _ = Auth.auth().currentUser else {
             print("Budget: Cannot add transaction - no user ID")
             return
         }
@@ -901,30 +914,53 @@ class Budget: ObservableObject {
     func reorderGroups(from source: IndexSet, to destination: Int) {
         guard let userId = Auth.auth().currentUser?.uid else { return }
         
-        // Update local state
-        var updatedGroups = categoryGroups
-        updatedGroups.move(fromOffsets: source, toOffset: destination)
+        // Set reordering flag to prevent listener updates
+        isReorderingGroups = true
+        
+        // Separate income group and other groups
+        let incomeGroup = categoryGroups.first { $0.name == "Income" }
+        var nonIncomeGroups = categoryGroups.filter { $0.name != "Income" }
+        
+        // Perform the move on non-income groups
+        nonIncomeGroups.move(fromOffsets: source, toOffset: destination)
+        
+        // Reconstruct the full array with income group at the start
+        var updatedGroups = [CategoryGroup]()
+        if let incomeGroup = incomeGroup {
+            updatedGroups.append(incomeGroup)
+        }
+        updatedGroups.append(contentsOf: nonIncomeGroups)
+        
+        // Update local state immediately
         categoryGroups = updatedGroups
         
         // Update Firestore
         let batch = db.batch()
         
-        // Update all affected groups
+        // Update all groups with their new order
         for (index, group) in updatedGroups.enumerated() {
             let groupRef = db.collection("users").document(userId)
                 .collection("categoryGroups")
                 .document(group.id.uuidString)
             
             var groupData = group.toFirestore()
-            groupData["order"] = index  // Add order field
+            groupData["order"] = index
             
-            batch.setData(groupData, forDocument: groupRef)
+            batch.setData(groupData, forDocument: groupRef, merge: true)
         }
         
         // Commit the batch
-        batch.commit { error in
-            if let error = error {
-                print("Error reordering groups: \(error.localizedDescription)")
+        batch.commit { [weak self] error in
+            guard let self = self else { return }
+            
+            DispatchQueue.main.async {
+                self.isReorderingGroups = false
+                
+                if let error = error {
+                    print("Error reordering groups: \(error.localizedDescription)")
+                    // On error, revert to the previous state by re-fetching data
+                    self.setupListeners()
+                }
             }
         }
     }
