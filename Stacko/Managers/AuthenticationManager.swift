@@ -5,10 +5,15 @@ import CoreData
 
 @MainActor
 class AuthenticationManager: ObservableObject {
-    @Published var currentUser: User?
+    @Published private(set) var currentUser: User?
     
+    @Published private(set) var isGuest = false
+    private let db = Firestore.firestore()
     private let budget: Budget
     private let setupCoordinator: SetupCoordinator
+    
+    // Public accessor for budget
+    var userBudget: Budget { budget }
     
     init(budget: Budget, setupCoordinator: SetupCoordinator) {
         self.budget = budget
@@ -95,10 +100,6 @@ class AuthenticationManager: ObservableObject {
         
         // Update local state
         handleFirebaseUser(result.user)
-    }
-    
-    var isGuest: Bool {
-        Auth.auth().currentUser?.isAnonymous ?? false
     }
     
     func deleteUserData(userId: String) async throws {

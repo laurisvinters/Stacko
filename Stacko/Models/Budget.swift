@@ -1021,4 +1021,71 @@ class Budget: ObservableObject {
             }
         }
     }
+    
+    func updateCategory(_ categoryId: UUID, name: String, emoji: String?) {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        
+        // Find the category and its group
+        for (groupIndex, group) in categoryGroups.enumerated() {
+            if let categoryIndex = group.categories.firstIndex(where: { $0.id == categoryId }) {
+                // Update local state
+                var updatedGroup = group
+                var updatedCategory = updatedGroup.categories[categoryIndex]
+                updatedCategory.name = name
+                updatedCategory.emoji = emoji
+                updatedGroup.categories[categoryIndex] = updatedCategory
+                
+                // Update local state
+                categoryGroups[groupIndex] = updatedGroup
+                
+                // Update Firestore
+                let groupRef = db.collection("users").document(userId)
+                    .collection("categoryGroups")
+                    .document(group.id.uuidString)
+                
+                // Convert group to Firestore data and only update the categories field
+                let groupData = updatedGroup.toFirestore()
+                groupRef.updateData([
+                    "categories": groupData["categories"] as Any
+                ]) { error in
+                    if let error = error {
+                        print("Error updating category: \(error.localizedDescription)")
+                    }
+                }
+                
+                break
+            }
+        }
+    }
+    
+    func deleteCategory(groupId: UUID, categoryId: UUID) {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        
+        // Find the group
+        guard let groupIndex = categoryGroups.firstIndex(where: { $0.id == groupId }) else { return }
+        var updatedGroup = categoryGroups[groupIndex]
+        
+        // Remove the category
+        updatedGroup.categories.removeAll { $0.id == categoryId }
+        
+        // Update local state
+        categoryGroups[groupIndex] = updatedGroup
+        
+        // Update Firestore
+        let groupRef = db.collection("users").document(userId)
+            .collection("categoryGroups")
+            .document(groupId.uuidString)
+        
+        // Convert group to Firestore data
+        let groupData = updatedGroup.toFirestore()
+        
+        // Update only the categories field
+        groupRef.updateData([
+            "categories": groupData["categories"] as Any
+        ]) { error in
+            if let error = error {
+                print("Error deleting category: \(error.localizedDescription)")
+            }
+        }
+    }
 }

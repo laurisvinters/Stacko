@@ -21,6 +21,20 @@ struct ProfileView: View {
                 }
             }
             
+            Section {
+                NavigationLink {
+                    ManageCategoriesView(budget: authManager.userBudget)
+                } label: {
+                    HStack {
+                        Text("Manage Categories")
+                        Spacer()
+                        Image(systemName: "folder.badge.gearshape")
+                    }
+                }
+            } header: {
+                Text("Budget Settings")
+            }
+            
             if !authManager.isGuest {
                 Section {
                     Button {
