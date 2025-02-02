@@ -459,6 +459,8 @@ class Budget: ObservableObject {
         guard let userId = Auth.auth().currentUser?.uid,
               let (groupIndex, categoryIndex) = findCategory(byId: categoryId) else { return }
         
+        print("Budget: Starting allocation of \(amount) to category \(categoryId)")
+        
         // Calculate total allocated amount after this allocation
         var totalAllocated = amount
         for group in categoryGroups {
@@ -470,7 +472,7 @@ class Budget: ObservableObject {
         // Check if we have enough to allocate
         let totalAvailable = accounts.filter { !$0.isArchived }.reduce(0) { $0 + $1.balance }
         if totalAllocated > totalAvailable {
-            print("Error: Not enough available to budget")
+            print("Budget: Error - Not enough available to budget")
             return
         }
         
@@ -498,12 +500,42 @@ class Budget: ObservableObject {
         let groupRef = db.collection("users").document(userId)
             .collection("categoryGroups")
             .document(updatedGroup.id.uuidString)
-        batch.setData(updatedGroup.toFirestore(), forDocument: groupRef)
         
-        // Commit all changes
-        batch.commit { error in
-            if let error = error {
-                print("Error updating budget allocation: \(error.localizedDescription)")
+        // Get the existing document to preserve the order field
+        groupRef.getDocument { [weak self] (document, error) in
+            guard let self = self else { return }
+            
+            var groupData = updatedGroup.toFirestore()
+            if let document = document,
+               let existingData = document.data(),
+               let existingOrder = existingData["order"] as? Int {
+                groupData["order"] = existingOrder
+            }
+            batch.setData(groupData, forDocument: groupRef, merge: true)
+            
+            // Update local state immediately
+            categoryGroups[groupIndex] = updatedGroup
+            
+            // Temporarily disable reordering flag to allow the update
+            let wasReordering = isReorderingGroups
+            isReorderingGroups = false
+            
+            // Commit all changes
+            batch.commit { [weak self] error in
+                guard let self = self else { return }
+                
+                if let error = error {
+                    print("Budget: Error allocating to budget: \(error.localizedDescription)")
+                    // Revert local state on error
+                    self.setupListeners()
+                } else {
+                    print("Budget: Successfully allocated \(amount) to category \(categoryId)")
+                }
+                
+                // Restore the reordering flag
+                DispatchQueue.main.async {
+                    self.isReorderingGroups = wasReordering
+                }
             }
         }
     }
@@ -677,19 +709,42 @@ class Budget: ObservableObject {
     func saveCategoryGroups(_ groups: [CategoryGroup]) {
         guard let userId = Auth.auth().currentUser?.uid else { return }
         
+        print("Budget: Starting to save \(groups.count) category groups")
+        
+        // Set reordering flag to prevent listener updates during setup
+        isReorderingGroups = true
+        
         let batch = db.batch()
         
-        for group in groups {
+        // Add order field to each group
+        for (index, group) in groups.enumerated() {
             let groupRef = db.collection("users").document(userId)
                 .collection("categoryGroups")
                 .document(group.id.uuidString)
             
-            batch.setData(group.toFirestore(), forDocument: groupRef)
+            var groupData = group.toFirestore()
+            groupData["order"] = index
+            
+            batch.setData(groupData, forDocument: groupRef)
+            print("Budget: Added group \(group.name) with \(group.categories.count) categories to batch")
         }
         
-        batch.commit { error in
+        // Update local state immediately
+        self.categoryGroups = groups
+        
+        batch.commit { [weak self] error in
+            guard let self = self else { return }
+            
             if let error = error {
-                print("Error saving category groups: \(error.localizedDescription)")
+                print("Budget: Error saving category groups: \(error.localizedDescription)")
+            } else {
+                print("Budget: Successfully saved all category groups")
+            }
+            
+            // Reset the reordering flag after a delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                self.isReorderingGroups = false
+                print("Budget: Reset reordering flag")
             }
         }
     }
@@ -866,6 +921,8 @@ class Budget: ObservableObject {
         
         guard let (groupIndex, categoryIndex) = findCategory(byId: allocation.categoryId) else { return }
         
+        print("Budget: Starting deletion of allocation \(allocation.id)")
+        
         let batch = db.batch()
         
         // Delete allocation document
@@ -881,14 +938,42 @@ class Budget: ObservableObject {
         let groupRef = db.collection("users").document(userId)
             .collection("categoryGroups")
             .document(updatedGroup.id.uuidString)
-        batch.setData(updatedGroup.toFirestore(), forDocument: groupRef)
         
-        // Commit all changes
-        batch.commit { error in
-            if let error = error {
-                print("Budget: Error deleting allocation: \(error.localizedDescription)")
-            } else {
-                print("Budget: Successfully deleted allocation \(allocation.id)")
+        // Get the existing document to preserve the order field
+        groupRef.getDocument { [weak self] (document, error) in
+            guard let self = self else { return }
+            
+            var groupData = updatedGroup.toFirestore()
+            if let document = document,
+               let existingData = document.data(),
+               let existingOrder = existingData["order"] as? Int {
+                groupData["order"] = existingOrder
+            }
+            batch.setData(groupData, forDocument: groupRef, merge: true)
+            
+            // Update local state immediately
+            categoryGroups[groupIndex] = updatedGroup
+            
+            // Temporarily disable reordering flag to allow the update
+            let wasReordering = isReorderingGroups
+            isReorderingGroups = false
+            
+            // Commit all changes
+            batch.commit { [weak self] error in
+                guard let self = self else { return }
+                
+                if let error = error {
+                    print("Budget: Error deleting allocation: \(error.localizedDescription)")
+                    // Revert local state on error
+                    self.setupListeners()
+                } else {
+                    print("Budget: Successfully deleted allocation \(allocation.id)")
+                }
+                
+                // Restore the reordering flag
+                DispatchQueue.main.async {
+                    self.isReorderingGroups = wasReordering
+                }
             }
         }
     }
@@ -900,6 +985,8 @@ class Budget: ObservableObject {
         }
         
         guard let (groupIndex, categoryIndex) = findCategory(byId: oldAllocation.categoryId) else { return }
+        
+        print("Budget: Starting update of allocation \(oldAllocation.id) from \(oldAllocation.amount) to \(newAmount)")
         
         let batch = db.batch()
         
@@ -924,14 +1011,42 @@ class Budget: ObservableObject {
         let groupRef = db.collection("users").document(userId)
             .collection("categoryGroups")
             .document(updatedGroup.id.uuidString)
-        batch.setData(updatedGroup.toFirestore(), forDocument: groupRef)
         
-        // Commit all changes
-        batch.commit { error in
-            if let error = error {
-                print("Budget: Error updating allocation: \(error.localizedDescription)")
-            } else {
-                print("Budget: Successfully updated allocation \(oldAllocation.id)")
+        // Get the existing document to preserve the order field
+        groupRef.getDocument { [weak self] (document, error) in
+            guard let self = self else { return }
+            
+            var groupData = updatedGroup.toFirestore()
+            if let document = document,
+               let existingData = document.data(),
+               let existingOrder = existingData["order"] as? Int {
+                groupData["order"] = existingOrder
+            }
+            batch.setData(groupData, forDocument: groupRef, merge: true)
+            
+            // Update local state immediately
+            categoryGroups[groupIndex] = updatedGroup
+            
+            // Temporarily disable reordering flag to allow the update
+            let wasReordering = isReorderingGroups
+            isReorderingGroups = false
+            
+            // Commit all changes
+            batch.commit { [weak self] error in
+                guard let self = self else { return }
+                
+                if let error = error {
+                    print("Budget: Error updating allocation: \(error.localizedDescription)")
+                    // Revert local state on error
+                    self.setupListeners()
+                } else {
+                    print("Budget: Successfully updated allocation \(oldAllocation.id) to \(newAmount)")
+                }
+                
+                // Restore the reordering flag
+                DispatchQueue.main.async {
+                    self.isReorderingGroups = wasReordering
+                }
             }
         }
     }
@@ -1018,6 +1133,11 @@ class Budget: ObservableObject {
         guard let userId = Auth.auth().currentUser?.uid,
               let groupIndex = categoryGroups.firstIndex(where: { $0.id == groupId }) else { return }
         
+        print("Budget: Starting to reorder categories in group \(groupId)")
+        
+        // Set reordering flag to prevent listener updates
+        isReorderingGroups = true
+        
         // Update local state
         var updatedGroup = categoryGroups[groupIndex]
         updatedGroup.categories.move(fromOffsets: source, toOffset: destination)
@@ -1028,9 +1148,21 @@ class Budget: ObservableObject {
             .collection("categoryGroups")
             .document(groupId.uuidString)
         
-        groupRef.setData(updatedGroup.toFirestore()) { error in
+        let groupData = updatedGroup.toFirestore()
+        
+        groupRef.setData(groupData, merge: true) { [weak self] error in
+            guard let self = self else { return }
+            
             if let error = error {
-                print("Error reordering categories: \(error.localizedDescription)")
+                print("Budget: Error reordering categories: \(error.localizedDescription)")
+            } else {
+                print("Budget: Successfully reordered categories in group \(groupId)")
+            }
+            
+            // Reset the reordering flag after a delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                self.isReorderingGroups = false
+                print("Budget: Reset reordering flag")
             }
         }
     }

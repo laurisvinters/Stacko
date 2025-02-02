@@ -120,10 +120,17 @@ struct BudgetView: View {
                             }
                         }
                         
-                        Button(editMode == .active ? "Done" : "Edit") {
+                        Button {
                             withAnimation {
                                 editMode = editMode == .active ? .inactive : .active
                                 isEditing = editMode == .active
+                            }
+                        } label: {
+                            if editMode == .active {
+                                Text("Done")
+                            } else {
+                                Label("Edit", systemImage: "arrow.up.and.down.text.horizontal")
+                                    .labelStyle(.iconOnly)
                             }
                         }
                     } else {
