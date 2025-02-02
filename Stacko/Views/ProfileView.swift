@@ -31,6 +31,16 @@ struct ProfileView: View {
                         Image(systemName: "folder.badge.gearshape")
                     }
                 }
+                
+                NavigationLink {
+                    ManageGroupsView(budget: authManager.userBudget)
+                } label: {
+                    HStack {
+                        Text("Manage Groups")
+                        Spacer()
+                        Image(systemName: "folder.fill.badge.gearshape")
+                    }
+                }
             } header: {
                 Text("Budget Settings")
             }

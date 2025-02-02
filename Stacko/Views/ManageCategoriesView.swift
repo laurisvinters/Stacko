@@ -8,6 +8,11 @@ struct ManageCategoriesView: View {
     
     var body: some View {
         List {
+            Text("Swipe right to edit a category, or swipe left to delete it.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .listRowSeparator(.hidden)
+            
             ForEach(budget.categoryGroups.filter { $0.name != "Income" }) { group in
                 Section(header: Text(group.name)) {
                     ForEach(group.categories) { category in

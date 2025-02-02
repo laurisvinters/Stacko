@@ -15,6 +15,11 @@ class Budget: ObservableObject {
     
     private var listeners: [ListenerRegistration] = []
     private var isReorderingGroups = false
+    private var isDeletingGroup = false {
+        didSet {
+            print("Budget: isDeletingGroup set to \(isDeletingGroup)")
+        }
+    }
     
     init() {
         // Listeners will be set up by AuthenticationManager when user is ready
@@ -131,43 +136,8 @@ class Budget: ObservableObject {
             }
         listeners.append(accountsListener)
         
-        // Listen for category groups changes
-        let groupsListener = db.collection("users").document(userId).collection("categoryGroups")
-            .order(by: "order")
-            .addSnapshotListener { [weak self] snapshot, error in
-                guard let self = self else { return }
-                
-                if let error = error {
-                    print("Budget: Error fetching category groups: \(error.localizedDescription)")
-                    return
-                }
-                
-                // Skip updates while reordering to prevent race conditions
-                if self.isReorderingGroups {
-                    return
-                }
-                
-                guard let documents = snapshot?.documents else {
-                    print("Budget: No category group documents found")
-                    return
-                }
-                
-                print("Budget: Received \(documents.count) category group documents")
-                let groups = documents.compactMap { document -> CategoryGroup? in
-                    guard let group = CategoryGroup.fromFirestore(document.data()) else {
-                        print("Budget: Failed to parse category group document \(document.documentID)")
-                        return nil
-                    }
-                    return group
-                }
-                
-                DispatchQueue.main.async {
-                    self.categoryGroups = groups
-                    print("Budget: Updated categoryGroups array with \(groups.count) groups")
-                }
-            }
-        listeners.append(groupsListener)
-            
+        setupGroupsListener(userId: userId)
+        
         // Listen for transactions changes
         let transactionsListener = db.collection("users").document(userId).collection("transactions")
             .addSnapshotListener { [weak self] snapshot, error in
@@ -231,6 +201,41 @@ class Budget: ObservableObject {
                 }
             }
         listeners.append(allocationsListener)
+    }
+    
+    private func setupGroupsListener(userId: String) {
+        // Listen for category groups changes
+        let groupsListener = db.collection("users").document(userId).collection("categoryGroups")
+            .order(by: "order")
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let self = self else { return }
+                
+                if let error = error {
+                    print("Budget: Error fetching category groups: \(error.localizedDescription)")
+                    return
+                }
+                
+                // Skip updates while reordering or deleting to prevent race conditions
+                if self.isReorderingGroups || self.isDeletingGroup {
+                    print("Budget: Skipping groups update due to reordering(\(self.isReorderingGroups)) or deleting(\(self.isDeletingGroup))")
+                    return
+                }
+                
+                guard let documents = snapshot?.documents else {
+                    print("Budget: No category group documents found")
+                    return
+                }
+                
+                print("Budget: Processing \(documents.count) group documents")
+                self.categoryGroups = documents.compactMap { document in
+                    guard let group = CategoryGroup.fromFirestore(document.data()) else {
+                        print("Budget: Failed to parse category group document \(document.documentID)")
+                        return nil
+                    }
+                    return group
+                }
+            }
+        listeners.append(groupsListener)
     }
     
     func completeSetup() {
@@ -505,15 +510,35 @@ class Budget: ObservableObject {
     
     func deleteGroup(_ id: UUID) {
         guard let userId = Auth.auth().currentUser?.uid else { return }
+        guard let groupIndex = categoryGroups.firstIndex(where: { $0.id == id }) else { return }
         
-        db.collection("users").document(userId)
-            .collection("categoryGroups")
-            .document(id.uuidString)
-            .delete() { error in
-                if let error = error {
-                    print("Error deleting group: \(error.localizedDescription)")
-                }
+        // Set flag to prevent listener updates
+        isDeletingGroup = true
+        print("Budget: Starting group deletion for group \(id)")
+        
+        // Update local state immediately
+        categoryGroups.remove(at: groupIndex)
+        
+        // Get reference to the group document
+        let groupRef = db.collection("users").document(userId)
+            .collection("categoryGroups").document(id.uuidString)
+        
+        // Delete the group document (categories are stored within the group document)
+        groupRef.delete { [weak self] error in
+            guard let self = self else { return }
+            
+            if let error = error {
+                print("Budget: Error deleting group: \(error.localizedDescription)")
+            } else {
+                print("Budget: Successfully deleted group \(id)")
             }
+            
+            // Reset the flag after a delay to ensure Firebase has processed the deletion
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                self.isDeletingGroup = false
+                print("Budget: Completed group deletion process")
+            }
+        }
     }
     
     func reconcileAccount(_ id: UUID, clearedBalance: Double) {
@@ -907,6 +932,30 @@ class Budget: ObservableObject {
                 print("Budget: Error updating allocation: \(error.localizedDescription)")
             } else {
                 print("Budget: Successfully updated allocation \(oldAllocation.id)")
+            }
+        }
+    }
+    
+    func updateGroup(groupId: UUID, name: String) {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        
+        // Find the group
+        guard let groupIndex = categoryGroups.firstIndex(where: { $0.id == groupId }) else { return }
+        var updatedGroup = categoryGroups[groupIndex]
+        updatedGroup.name = name
+        
+        // Update local state
+        categoryGroups[groupIndex] = updatedGroup
+        
+        // Update in Firestore
+        let groupRef = db.collection("users").document(userId)
+            .collection("categoryGroups").document(groupId.uuidString)
+        
+        groupRef.updateData([
+            "name": name
+        ]) { error in
+            if let error = error {
+                print("Budget: Error updating group: \(error.localizedDescription)")
             }
         }
     }
