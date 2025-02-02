@@ -3,6 +3,7 @@ import FirebaseAuth
 
 struct ProfileView: View {
     @ObservedObject var authManager: AuthenticationManager
+    @EnvironmentObject private var themeManager: ThemeManager
     @State private var showingDeleteConfirmation = false
     @State private var showingError = false
     @State private var errorMessage = ""
@@ -43,6 +44,22 @@ struct ProfileView: View {
                 }
             } header: {
                 Text("Budget Settings")
+            }
+            
+            Section {
+                Toggle(isOn: .init(
+                    get: { themeManager.isDarkMode },
+                    set: { _ in themeManager.toggleTheme() }
+                )) {
+                    HStack {
+                        Text("Dark Mode")
+                        Spacer()
+                        Image(systemName: themeManager.isDarkMode ? "moon.fill" : "sun.max.fill")
+                            .foregroundColor(themeManager.isDarkMode ? .yellow : .orange)
+                    }
+                }
+            } header: {
+                Text("Appearance")
             }
             
             if !authManager.isGuest {
@@ -98,6 +115,7 @@ struct ProfileView: View {
         }
         .navigationTitle("Profile")
         .disabled(isLoading)
+        .preferredColorScheme(themeManager.colorScheme)
         .alert("Delete Account", isPresented: $showingDeleteConfirmation) {
             SecureField("Enter Password", text: $password)
             Button("Cancel", role: .cancel) { 
@@ -209,4 +227,4 @@ struct ProfileView: View {
             password = "" // Clear password field
         }
     }
-} 
+}
