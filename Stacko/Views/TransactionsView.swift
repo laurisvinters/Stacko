@@ -14,12 +14,10 @@ struct TransactionsView: View {
                 ForEach(sortedTransactions) { transaction in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            VStack(alignment: .leading) {
+                            VStack(alignment: .leading, spacing: 2) {
                                 Text(transaction.payee)
-                                Text(transaction.date.formatted(date: .abbreviated, time: .shortened))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
                                 HStack(spacing: 4) {
+                                    Text(transaction.date.formatted(date: .abbreviated, time: .shortened))
                                     Text("•")
                                     if let account = budget.accounts.first(where: { $0.id == transaction.accountId }) {
                                         Text(account.name)
@@ -69,30 +67,8 @@ struct TransactionsView: View {
         }
     }
     
-    private var initialBalanceTransactions: [Transaction] {
-        budget.accounts.filter { $0.initialBalance != 0 }.map { account in
-            // Find or create an income category ID for initial balance
-            let incomeCategoryId = budget.categoryGroups
-                .first { $0.name == "Income" }?
-                .categories.first { $0.name == "Initial Balance" }?.id ?? UUID()
-            
-            return Transaction(
-                id: UUID(),
-                date: account.createdAt,
-                payee: "Initial Balance",
-                categoryId: incomeCategoryId,
-                amount: account.initialBalance,
-                note: "Initial balance for \(account.name)",
-                isIncome: true,
-                accountId: account.id,
-                toAccountId: nil
-            )
-        }
-    }
-    
     private var sortedTransactions: [Transaction] {
-        (budget.transactions + initialBalanceTransactions)
-            .sorted { $0.date > $1.date }
+        budget.transactions.sorted { $0.date > $1.date }
     }
 }
 
