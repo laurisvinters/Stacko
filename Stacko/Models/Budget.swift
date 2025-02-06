@@ -497,10 +497,15 @@ class Budget: ObservableObject {
         var updatedGroup = categoryGroups[groupIndex]
         updatedGroup.categories[categoryIndex].target = target
         
+        // Only update the categories field to preserve other fields like order
+        let groupData: [String: Any] = [
+            "categories": updatedGroup.categories.map { $0.toFirestore() }
+        ]
+        
         db.collection("users").document(userId)
             .collection("categoryGroups")
             .document(updatedGroup.id.uuidString)
-            .setData(updatedGroup.toFirestore()) { error in
+            .setData(groupData, merge: true) { error in
                 if let error = error {
                     print("Error updating category target: \(error.localizedDescription)")
                 }
