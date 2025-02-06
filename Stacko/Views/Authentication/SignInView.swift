@@ -18,11 +18,14 @@ struct SignInView: View {
             Form {
                 Section {
                     TextField("Email", text: $email)
-                        .textContentType(.emailAddress)
                         .autocapitalization(.none)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.emailAddress)
                     
                     SecureField("Password", text: $password)
-                        .textContentType(.password)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
                 }
                 
                 Section {

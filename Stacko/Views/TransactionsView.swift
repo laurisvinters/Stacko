@@ -14,10 +14,12 @@ struct TransactionsView: View {
                 ForEach(sortedTransactions) { transaction in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            VStack(alignment: .leading, spacing: 2) {
+                            VStack(alignment: .leading) {
                                 Text(transaction.payee)
-                                HStack(spacing: 4) {
                                     Text(transaction.date.formatted(date: .abbreviated, time: .shortened))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                HStack(spacing: 4) {
                                     Text("•")
                                     if let account = budget.accounts.first(where: { $0.id == transaction.accountId }) {
                                         Text(account.name)
