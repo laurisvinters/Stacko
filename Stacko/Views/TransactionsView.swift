@@ -69,8 +69,30 @@ struct TransactionsView: View {
         }
     }
     
+    private var initialBalanceTransactions: [Transaction] {
+        budget.accounts.filter { $0.initialBalance != 0 }.map { account in
+            // Find or create an income category ID for initial balance
+            let incomeCategoryId = budget.categoryGroups
+                .first { $0.name == "Income" }?
+                .categories.first { $0.name == "Initial Balance" }?.id ?? UUID()
+            
+            return Transaction(
+                id: UUID(),
+                date: account.createdAt,
+                payee: "Initial Balance",
+                categoryId: incomeCategoryId,
+                amount: account.initialBalance,
+                note: "Initial balance for \(account.name)",
+                isIncome: true,
+                accountId: account.id,
+                toAccountId: nil
+            )
+        }
+    }
+    
     private var sortedTransactions: [Transaction] {
-        budget.transactions.sorted { $0.date > $1.date }
+        (budget.transactions + initialBalanceTransactions)
+            .sorted { $0.date > $1.date }
     }
 }
 

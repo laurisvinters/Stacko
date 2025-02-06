@@ -229,7 +229,9 @@ class Budget: ObservableObject {
             balance: balance,
             clearedBalance: balance,
             icon: icon,
-            isArchived: false
+            isArchived: false,
+            initialBalance: balance,
+            createdAt: Date()
         )
         
         let batch = db.batch()
@@ -246,12 +248,12 @@ class Budget: ObservableObject {
            let initialBalanceCategory = incomeGroup.categories.first(where: { $0.name == "Initial Balance" }) ?? incomeGroup.categories.first {
             let transaction = Transaction(
                 id: UUID(),
-                date: Date(),
+                date: account.createdAt,
                 payee: "Initial Balance",
                 categoryId: initialBalanceCategory.id,
-                amount: abs(balance),
+                amount: balance,
                 note: "Initial balance for \(name)",
-                isIncome: balance > 0,
+                isIncome: true,
                 accountId: account.id,
                 toAccountId: nil
             )
@@ -265,7 +267,7 @@ class Budget: ObservableObject {
         // Commit the batch
         batch.commit { error in
             if let error = error {
-                print("Error adding account: \(error.localizedDescription)")
+                print("Budget: Error adding account: \(error.localizedDescription)")
             }
         }
     }
