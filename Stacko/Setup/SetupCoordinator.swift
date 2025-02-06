@@ -218,12 +218,11 @@ class SetupCoordinator: ObservableObject {
     }
     
     func reset() {
-        // Reset all state to initial values
         currentStep = .modeSelection
         setupMode = nil
         currentGroupIndex = 0
         setupGroups = []
-        selectedCategories = []
+        selectedCategories.removeAll()
         isSetupComplete = false
     }
 }

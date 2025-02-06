@@ -8,6 +8,7 @@ struct MainView: View {
     @State private var selectedTab = 0
     @State private var previousTab = 0
     @State private var isEditing = false
+    @State private var showingProfile = false
     
     var body: some View {
         Group {
@@ -29,8 +30,8 @@ struct MainView: View {
                             .toolbar {
                                 ToolbarItem(placement: .navigationBarTrailing) {
                                     if !isEditing {
-                                        NavigationLink {
-                                            ProfileView(authManager: authManager)
+                                        Button {
+                                            showingProfile = true
                                         } label: {
                                             Label("Profile", systemImage: "person.circle")
                                         }
@@ -50,8 +51,8 @@ struct MainView: View {
                             .toolbar {
                                 ToolbarItem(placement: .navigationBarTrailing) {
                                     if !isEditing {
-                                        NavigationLink {
-                                            ProfileView(authManager: authManager)
+                                        Button {
+                                            showingProfile = true
                                         } label: {
                                             Label("Profile", systemImage: "person.circle")
                                         }
@@ -80,8 +81,8 @@ struct MainView: View {
                             .toolbar {
                                 ToolbarItem(placement: .navigationBarTrailing) {
                                     if !isEditing {
-                                        NavigationLink {
-                                            ProfileView(authManager: authManager)
+                                        Button {
+                                            showingProfile = true
                                         } label: {
                                             Label("Profile", systemImage: "person.circle")
                                         }
@@ -101,8 +102,8 @@ struct MainView: View {
                             .toolbar {
                                 ToolbarItem(placement: .navigationBarTrailing) {
                                     if !isEditing {
-                                        NavigationLink {
-                                            ProfileView(authManager: authManager)
+                                        Button {
+                                            showingProfile = true
                                         } label: {
                                             Label("Profile", systemImage: "person.circle")
                                         }
@@ -127,6 +128,11 @@ struct MainView: View {
                 }
                 .sheet(isPresented: $showingAddTransaction) {
                     QuickAddTransactionSheet(budget: budget)
+                }
+                .fullScreenCover(isPresented: $showingProfile) {
+                    NavigationStack {
+                        ProfileView(authManager: authManager)
+                    }
                 }
             }
         }

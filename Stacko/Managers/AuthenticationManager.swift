@@ -27,6 +27,7 @@ class AuthenticationManager: ObservableObject {
             } else {
                 self?.currentUser = nil
                 self?.budget.reset()
+                self?.setupCoordinator.isSetupComplete = false
             }
         }
     }
@@ -80,7 +81,9 @@ class AuthenticationManager: ObservableObject {
         try Auth.auth().signOut()
         currentUser = nil
         budget.reset()
-        setupCoordinator.isSetupComplete = false
+        setupCoordinator.reset()
+        UserDefaults.standard.removeObject(forKey: "isSetupComplete")
+        self.isGuest = false
     }
     
     func signInAsGuest() async throws {
@@ -100,6 +103,9 @@ class AuthenticationManager: ObservableObject {
         
         // Update local state
         handleFirebaseUser(result.user)
+        self.isGuest = true
+        setupCoordinator.isSetupComplete = false
+        UserDefaults.standard.removeObject(forKey: "isSetupComplete")
     }
     
     func deleteUserData(userId: String) async throws {
@@ -186,5 +192,35 @@ class AuthenticationManager: ObservableObject {
     
     func resetPassword(email: String) async throws {
         try await Auth.auth().sendPasswordReset(withEmail: email)
+    }
+    
+    func convertGuestAccount(email: String, password: String, name: String) async throws {
+        guard let currentUser = Auth.auth().currentUser, currentUser.isAnonymous else {
+            throw NSError(domain: "AuthenticationManager", code: -1, 
+                userInfo: [NSLocalizedDescriptionKey: "No guest account to convert"])
+        }
+        
+        // Create EmailAuthProvider credential
+        let credential = EmailAuthProvider.credential(withEmail: email, password: password)
+        
+        // Link the anonymous account with the email credential
+        try await currentUser.link(with: credential)
+        
+        // Update display name
+        let changeRequest = currentUser.createProfileChangeRequest()
+        changeRequest.displayName = name
+        try await changeRequest.commitChanges()
+        
+        // Update the user document in Firestore
+        try await db.collection("users").document(currentUser.uid)
+            .updateData([
+                "email": email,
+                "name": name,
+                "isGuest": false
+            ])
+        
+        // Update local state
+        self.isGuest = false
+        handleFirebaseUser(currentUser)
     }
 } 
