@@ -244,13 +244,13 @@ class Budget: ObservableObject {
         
         // Add initial balance transaction if needed
         if balance != 0,
-           let incomeGroup = categoryGroups.first(where: { $0.name == "Income" }),
-           let initialBalanceCategory = incomeGroup.categories.first(where: { $0.name == "Initial Balance" }) ?? incomeGroup.categories.first {
+           let firstGroup = categoryGroups.first,
+           let firstCategory = firstGroup.categories.first {
             let transaction = Transaction(
                 id: UUID(),
                 date: account.createdAt,
                 payee: "Initial Balance",
-                categoryId: initialBalanceCategory.id,
+                categoryId: firstCategory.id,
                 amount: balance,
                 note: "Initial balance for \(name)",
                 isIncome: true,
