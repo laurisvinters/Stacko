@@ -17,21 +17,17 @@ struct SignUpView: View {
             Form {
                 Section {
                     TextField("Name", text: $name)
-                        .autocorrectionDisabled()
+                        .textContentType(.name)
                     
                     TextField("Email", text: $email)
+                        .textContentType(.emailAddress)
                         .autocapitalization(.none)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .keyboardType(.emailAddress)
                     
                     SecureField("Password", text: $password)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
+                        .textContentType(.newPassword)
                     
                     SecureField("Confirm Password", text: $confirmPassword)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
+                        .textContentType(.newPassword)
                 }
             }
             .navigationTitle("Create Account")
