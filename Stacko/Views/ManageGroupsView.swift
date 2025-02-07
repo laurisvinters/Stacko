@@ -38,6 +38,7 @@ struct ManageGroupsView: View {
                     }
                     .tint(.blue)
                 }
+                .swipeHint(enabled: group.id == budget.categoryGroups.filter { $0.name != "Income" }.first?.id)
             }
         }
         .navigationTitle("Manage Groups")

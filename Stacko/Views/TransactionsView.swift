@@ -48,6 +48,7 @@ struct TransactionsView: View {
                         }
                         .tint(.blue)
                     }
+                    .swipeHint(enabled: transaction.id == sortedTransactions.first?.id)
                 }
             }
             .navigationTitle("Transactions")

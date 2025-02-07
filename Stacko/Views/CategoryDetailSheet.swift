@@ -297,8 +297,10 @@ struct CategoryDetailSheet: View {
                 ForEach(recentActivity, id: \.date) { activity in
                     if activity.isTransaction {
                         TransactionActivityRow(activity: activity)
+                            .swipeHint(enabled: activity.date == recentActivity.first?.date)
                     } else {
                         AllocationActivityRow(activity: activity)
+                            .swipeHint(enabled: activity.date == recentActivity.first?.date)
                     }
                 }
             }

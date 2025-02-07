@@ -41,6 +41,7 @@ struct ManageCategoriesView: View {
                             }
                             .tint(.blue)
                         }
+                        .swipeHint(enabled: category.id == group.categories.first?.id)
                     }
                 }
             }

@@ -244,9 +244,10 @@ struct CategoryRow: View {
                 Text(category.available, format: .currency(code: "USD"))
             }
             
-            // Show target progress if target exists
-            if let target = category.target {
-                VStack(alignment: .leading, spacing: 2) {
+            // Show allocation status bar for all categories
+            VStack(alignment: .leading, spacing: 2) {
+                if let target = category.target {
+                    // Category with target: show progress towards target
                     ProgressView(value: category.allocated, total: targetAmount(for: target))
                         .tint(progressColor(for: category))
                     
@@ -256,6 +257,21 @@ struct CategoryRow: View {
                             .foregroundStyle(.secondary)
                         Spacer()
                         Text("\(Int(targetProgress(for: category) * 100))%")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    // Category without target: show 0% if no allocation, 100% if any allocation
+                    let progress = category.allocated > 0 ? 1.0 : 0.0
+                    ProgressView(value: progress, total: 1.0)
+                        .tint(category.allocated > 0 ? .green : .gray)
+                    
+                    HStack {
+                        Text("No target set")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text("\(Int(progress * 100))%")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
