@@ -175,13 +175,13 @@ class SetupCoordinator: ObservableObject {
         case .modeSelection:
             break // First step, do nothing
         case .groups:
-            currentStep = .modeSelection
+            reset() // Reset all state when going back to mode selection
         case .categories:
             currentStep = .groups
             currentGroupIndex = 0
         case .targets:
             if setupMode == .fast {
-                currentStep = .modeSelection
+                reset() // Reset all state when going back to mode selection in fast mode
             } else {
                 currentStep = .categories
             }

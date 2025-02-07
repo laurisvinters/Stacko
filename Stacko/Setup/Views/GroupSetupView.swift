@@ -222,14 +222,7 @@ struct GroupSetupView: View {
         .alert("Cancel Setup", isPresented: $showingCancelAlert) {
             Button("No", role: .cancel) { }
             Button("Yes", role: .destructive) {
-                Task {
-                    do {
-                        try await authManager.signOut()
-                    } catch {
-                        errorMessage = error.localizedDescription
-                        showingError = true
-                    }
-                }
+                coordinator.reset()
             }
         } message: {
             Text("Are you sure you want to cancel the setup? You'll need to start over.")
