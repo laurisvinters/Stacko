@@ -10,41 +10,12 @@
    - Modular (evident from directory structure with separate Models, Views, Managers)
    - MVVM (Model-View-ViewModel) design pattern
 8. **Key Components**:
-   - [ContentView.swift](cci:7://file:///Users/laurisvinters/Documents/Stacko/Stacko/ContentView.swift:0:0-0:0): Main app view
-   - [StackoApp.swift](cci:7://file:///Users/laurisvinters/Documents/Stacko/Stacko/StackoApp.swift:0:0-0:0): App entry point
+   - [ContentView.swift](Stacko/Stacko/ContentView.swift:0:0-0:0): Main app view
+   - [StackoApp.swift](Stacko/Stacko/StackoApp.swift:0:0-0:0): App entry point
 
 # Stacko Budgeting App - Core Principles and Design Guidelines
 
 Stacko is a budgeting app that empowers users to manage their finances effectively.
-
-## Project Structure:
-
-Stacko/
-├── Assets.xcassets/               # App assets and icon sets
-│   ├── AccentColor.colorset/
-│   └── AppIcon.appiconset/
-├── Data/                           # Data management
-│   └── DataController.swift
-├── Extensions/                     # Swift language extensions
-│   └── Calendar+Extensions.swift
-├── Managers/                       # App-wide management services
-│   ├── AuthenticationManager.swift
-│   └── FirebaseManager.swift
-├── Models/                         # Data models
-├── Setup/                          # App initialization components
-│   ├── Models/
-│   ├── SetupCoordinator.swift
-│   └── Views/
-├── Utilities/                      # Utility classes and helpers
-│   ├── HapticManager.swift
-│   └── SharedEmojis.swift
-├── ViewModifiers/                  # SwiftUI view modifiers
-│   └── KeyboardAdaptive.swift
-├── Views/                          # User interface views
-├── ContentView.swift               # Main content view
-├── GoogleService-Info.plist        # Firebase configuration
-└── StackoApp.swift                 # App entry point
-
 
 ## Firebase Integration
 - Uses Firebase Authentication and Firestore for user management and data storage

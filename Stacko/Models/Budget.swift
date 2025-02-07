@@ -67,12 +67,7 @@ class Budget: ObservableObject {
             
             DispatchQueue.main.async {
                 if let data = snapshot?.data() {
-                    // For guest accounts, always start with setup
-                    if data["isGuest"] as? Bool == true {
-                        self?.isSetupComplete = false
-                    } else {
-                        self?.isSetupComplete = data["isSetupComplete"] as? Bool ?? false
-                    }
+                    self?.isSetupComplete = data["isSetupComplete"] as? Bool ?? false
                 } else {
                     // Document doesn't exist yet, set default state
                     self?.isSetupComplete = false
@@ -90,12 +85,7 @@ class Budget: ObservableObject {
                 }
                 
                 if let data = snapshot?.data() {
-                    // For guest accounts, always start with setup
-                    if data["isGuest"] as? Bool == true {
-                        self?.isSetupComplete = false
-                    } else {
-                        self?.isSetupComplete = data["isSetupComplete"] as? Bool ?? false
-                    }
+                    self?.isSetupComplete = data["isSetupComplete"] as? Bool ?? false
                     print("Budget: Setup completion state: \(self?.isSetupComplete ?? false)")
                 }
             }
@@ -434,6 +424,13 @@ class Budget: ObservableObject {
         
         print("Budget: Adding transaction \(transaction.id) for user \(userId)")
         
+        // Find category and account indices before starting the batch
+        guard let (groupIndex, categoryIndex) = findCategory(byId: transaction.categoryId),
+              let accountIndex = accounts.firstIndex(where: { $0.id == transaction.accountId }) else {
+            print("Budget: Cannot find category or account for transaction")
+            return
+        }
+        
         let batch = db.batch()
         
         // Add transaction document
@@ -443,35 +440,36 @@ class Budget: ObservableObject {
         batch.setData(transaction.toFirestore(), forDocument: transactionRef)
         
         // Update category's spent amount for expenses or allocated amount for income
-        if let (groupIndex, categoryIndex) = findCategory(byId: transaction.categoryId) {
-            var updatedGroup = categoryGroups[groupIndex]
-            if transaction.isIncome {
-                // For income, increase the allocated amount
-                updatedGroup.categories[categoryIndex].allocated += transaction.amount
-            } else {
-                // For expenses, transaction.amount is already negative
-                // We want to increase spent by the positive amount
-                updatedGroup.categories[categoryIndex].spent -= transaction.amount
-            }
-            
-            let groupRef = db.collection("users").document(userId)
-                .collection("categoryGroups")
-                .document(updatedGroup.id.uuidString)
-            batch.setData(updatedGroup.toFirestore(), forDocument: groupRef)
+        var updatedGroup = categoryGroups[groupIndex]
+        if transaction.isIncome {
+            // For income, increase the allocated amount
+            updatedGroup.categories[categoryIndex].allocated += transaction.amount
+        } else {
+            // For expenses, transaction.amount is already negative
+            // We want to increase spent by the positive amount
+            updatedGroup.categories[categoryIndex].spent -= transaction.amount
         }
         
+        let groupRef = db.collection("users").document(userId)
+            .collection("categoryGroups")
+            .document(updatedGroup.id.uuidString)
+        
+        // Preserve all existing data and only update the categories
+        let groupData: [String: Any] = [
+            "categories": updatedGroup.categories.map { $0.toFirestore() }
+        ]
+        batch.setData(groupData, forDocument: groupRef, merge: true)
+        
         // Update account balance
-        if let accountIndex = accounts.firstIndex(where: { $0.id == transaction.accountId }) {
-            var updatedAccount = accounts[accountIndex]
-            updatedAccount.balance += transaction.amount
-            // For now, assume all transactions affect cleared balance
-            updatedAccount.clearedBalance += transaction.amount
-            
-            let accountRef = db.collection("users").document(userId)
-                .collection("accounts")
-                .document(updatedAccount.id.uuidString)
-            batch.setData(updatedAccount.toFirestore(), forDocument: accountRef)
-        }
+        var updatedAccount = accounts[accountIndex]
+        updatedAccount.balance += transaction.amount
+        // For now, assume all transactions affect cleared balance
+        updatedAccount.clearedBalance += transaction.amount
+        
+        let accountRef = db.collection("users").document(userId)
+            .collection("accounts")
+            .document(updatedAccount.id.uuidString)
+        batch.setData(updatedAccount.toFirestore(), forDocument: accountRef)
         
         // Commit all changes
         batch.commit { error in
@@ -499,10 +497,15 @@ class Budget: ObservableObject {
         var updatedGroup = categoryGroups[groupIndex]
         updatedGroup.categories[categoryIndex].target = target
         
+        // Only update the categories field to preserve other fields like order
+        let groupData: [String: Any] = [
+            "categories": updatedGroup.categories.map { $0.toFirestore() }
+        ]
+        
         db.collection("users").document(userId)
             .collection("categoryGroups")
             .document(updatedGroup.id.uuidString)
-            .setData(updatedGroup.toFirestore()) { error in
+            .setData(groupData, merge: true) { error in
                 if let error = error {
                     print("Error updating category target: \(error.localizedDescription)")
                 }
