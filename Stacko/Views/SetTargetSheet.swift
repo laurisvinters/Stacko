@@ -14,6 +14,8 @@ struct SetTargetSheet: View {
     @State private var intervalType: IntervalType = .days
     @State private var intervalCount = "7"
     @State private var selectedDayOfMonth = 1
+    @State private var showingCancelAlert = false
+    @State private var showingMonthlyDayWarning = false
     @FocusState private var isAmountFocused: Bool
     
     private enum TargetType: String, CaseIterable {
@@ -65,7 +67,13 @@ struct SetTargetSheet: View {
                             )
                             .datePickerStyle(.graphical)
                             .onChange(of: targetDate) { _, newDate in
-                                selectedDayOfMonth = Calendar.current.component(.day, from: newDate)
+                                let day = Calendar.current.component(.day, from: newDate)
+                                selectedDayOfMonth = day
+                                
+                                // Show warning if day is after 28th
+                                if day > 28 {
+                                    showingMonthlyDayWarning = true
+                                }
                             }
                         }
                         
@@ -96,6 +104,11 @@ struct SetTargetSheet: View {
             }
             .navigationTitle("Set Target")
             .navigationBarTitleDisplayMode(.inline)
+            .alert("Monthly Target Day", isPresented: $showingMonthlyDayWarning) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("You've selected day \(selectedDayOfMonth). In months that don't have this day, the target will automatically reset to the last day of that month.")
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
