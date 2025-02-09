@@ -8,10 +8,10 @@ struct ManageCategoriesView: View {
     
     var body: some View {
         List {
-            Text("Swipe right to edit a category, or swipe left to delete it.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .listRowSeparator(.hidden)
+            Section {
+                SwipeInstructionText()
+            }
+            .listSectionSpacing(0)
             
             ForEach(budget.categoryGroups.filter { $0.name != "Income" }) { group in
                 Section(header: Text(group.name)) {
@@ -41,7 +41,6 @@ struct ManageCategoriesView: View {
                             }
                             .tint(.blue)
                         }
-                        .swipeHint(enabled: category.id == group.categories.first?.id)
                     }
                 }
             }

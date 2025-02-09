@@ -289,7 +289,24 @@ struct CategoryDetailSheet: View {
     
     @ViewBuilder
     private func RecentActivityView() -> some View {
-        Section("Recent Activity") {
+        Section ("Recent Activity") {
+                    (Text("Swipe left to ")
+                        .foregroundColor(.gray) +
+                     Text("delete")
+                        .foregroundColor(.blue) +
+                     Text(" transactions. Swipe right, then click to ")
+                        .foregroundColor(.gray) +
+                     Text("edit")
+                        .foregroundColor(.blue) +
+                     Text(" transactions")
+                        .foregroundColor(.gray))
+                        .font(.caption)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .listRowBackground(Color.clear)
+                }
+                .listSectionSpacing(0)
+        
+        Section {
             if recentActivity.isEmpty {
                 Text("No activity yet")
                     .foregroundStyle(.secondary)
@@ -297,10 +314,8 @@ struct CategoryDetailSheet: View {
                 ForEach(recentActivity, id: \.date) { activity in
                     if activity.isTransaction {
                         TransactionActivityRow(activity: activity)
-                            .swipeHint(enabled: activity.date == recentActivity.first?.date)
                     } else {
                         AllocationActivityRow(activity: activity)
-                            .swipeHint(enabled: activity.date == recentActivity.first?.date)
                     }
                 }
             }
@@ -366,8 +381,6 @@ struct CategoryDetailSheet: View {
         }
     }
 }
-
-// Separate row view to avoid circular dependency
 struct TransactionListRow: View {
     let transaction: Transaction
     

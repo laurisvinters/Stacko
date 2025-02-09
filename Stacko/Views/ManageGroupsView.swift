@@ -1,5 +1,23 @@
 import SwiftUI
 
+struct SwipeInstructionText: View {
+    var body: some View {
+        (Text("Swipe left to ")
+            .foregroundColor(.gray) +
+         Text("delete")
+            .foregroundColor(.blue) +
+         Text(" transactions. Swipe right, then click to ")
+            .foregroundColor(.gray) +
+         Text("edit")
+            .foregroundColor(.blue) +
+         Text(" transactions")
+            .foregroundColor(.gray))
+            .font(.caption)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .listRowBackground(Color.clear)
+    }
+}
+
 struct ManageGroupsView: View {
     @ObservedObject var budget: Budget
     @State private var editingGroup: CategoryGroup?
@@ -9,36 +27,37 @@ struct ManageGroupsView: View {
     
     var body: some View {
         List {
-            Text("Swipe right to edit a group, or swipe left to delete it.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .listRowSeparator(.hidden)
+            Section {
+                SwipeInstructionText()
+            }
+            .listSectionSpacing(0)
             
-            ForEach(budget.categoryGroups.filter { $0.name != "Income" }) { group in
-                HStack {
-                    Text(group.name)
-                    Spacer()
-                    Text("\(group.categories.count) categories")
-                        .foregroundStyle(.secondary)
-                }
-                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    Button(role: .destructive) {
-                        groupToDelete = group.id
-                        showingDeleteAlert = true
-                    } label: {
-                        Label("Delete", systemImage: "trash")
+            Section {
+                ForEach(budget.categoryGroups.filter { $0.name != "Income" }) { group in
+                    HStack {
+                        Text(group.name)
+                        Spacer()
+                        Text("\(group.categories.count) categories")
+                            .foregroundStyle(.secondary)
+                    }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) {
+                            groupToDelete = group.id
+                            showingDeleteAlert = true
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+                    .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                        Button {
+                            editingGroup = group
+                            editingName = group.name
+                        } label: {
+                            Label("Edit", systemImage: "pencil")
+                        }
+                        .tint(.blue)
                     }
                 }
-                .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                    Button {
-                        editingGroup = group
-                        editingName = group.name
-                    } label: {
-                        Label("Edit", systemImage: "pencil")
-                    }
-                    .tint(.blue)
-                }
-                .swipeHint(enabled: group.id == budget.categoryGroups.filter { $0.name != "Income" }.first?.id)
             }
         }
         .navigationTitle("Manage Groups")
@@ -56,7 +75,7 @@ struct ManageGroupsView: View {
                 }
             }
         } message: {
-            Text("Are you sure you want to delete this group? All categories in this group will also be deleted. This action cannot be undone.")
+            Text("Are you sure you want to delete this group? This action cannot be undone.")
         }
     }
 }
