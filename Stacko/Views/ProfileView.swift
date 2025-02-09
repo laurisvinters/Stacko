@@ -4,6 +4,7 @@ import FirebaseAuth
 struct ProfileView: View {
     @ObservedObject var authManager: AuthenticationManager
     @EnvironmentObject private var themeManager: ThemeManager
+    @Environment(\.dismiss) private var dismiss
     @State private var showingDeleteConfirmation = false
     @State private var showingError = false
     @State private var errorMessage = ""
@@ -12,13 +13,19 @@ struct ProfileView: View {
     @State private var showingResetConfirmation = false
     @State private var showingResetPasswordPrompt = false
     @State private var currentPassword = ""
+    @State private var showingSignOutWarning = false
     
     var body: some View {
         Form {
+            
             Section {
                 if let user = authManager.currentUser {
-                    LabeledContent("Name", value: user.name)
-                    LabeledContent("Email", value: user.email)
+                    if authManager.isGuest {
+                        LabeledContent("Name", value: "Guest")
+                    } else {
+                        LabeledContent("Name", value: user.name)
+                        LabeledContent("Email", value: user.email)
+                    }
                 }
             }
             
@@ -83,7 +90,7 @@ struct ProfileView: View {
                         ConvertGuestAccountView(authManager: authManager)
                     } label: {
                         HStack {
-                            Text("Create Full Account")
+                            Text("Transfer to an Account")
                             Spacer()
                             Image(systemName: "person.badge.plus")
                         }
@@ -92,28 +99,48 @@ struct ProfileView: View {
             }
             
             Section {
-                Button(role: .destructive) {
-                    showingDeleteConfirmation = true
-                } label: {
-                    HStack {
-                        Text("Delete Account")
-                        Spacer()
-                        Image(systemName: "trash")
+                if !authManager.isGuest {
+                    Button(role: .destructive) {
+                        showingDeleteConfirmation = true
+                    } label: {
+                        HStack {
+                            Text("Delete Account")
+                            Spacer()
+                            Image(systemName: "trash")
+                        }
                     }
-                }
-                
-                Button(role: .destructive) {
-                    signOut()
-                } label: {
-                    HStack {
-                        Text("Sign Out")
-                        Spacer()
-                        Image(systemName: "rectangle.portrait.and.arrow.right")
+
+                    Button(role: .destructive) {
+                        signOut()
+                    } label: {
+                        HStack {
+                            Text("Sign Out")
+                            Spacer()
+                            Image(systemName: "rectangle.portrait.and.arrow.right")
+                        }
+                    }
+                } else {
+                    Button(role: .destructive) {
+                        showingSignOutWarning = true
+                    } label: {
+                        HStack {
+                            Text("Sign Out")
+                            Spacer()
+                            Image(systemName: "rectangle.portrait.and.arrow.right")
+                        }
                     }
                 }
             }
         }
         .navigationTitle("Profile")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button("Back") {
+                    dismiss()
+                }
+            }
+        }
         .disabled(isLoading)
         .preferredColorScheme(themeManager.colorScheme)
         .alert("Delete Account", isPresented: $showingDeleteConfirmation) {
@@ -147,6 +174,14 @@ struct ProfileView: View {
             }
         } message: {
             Text("Enter your current password to receive a password reset link.")
+        }
+        .alert("Sign Out", isPresented: $showingSignOutWarning) {
+            Button("Cancel", role: .cancel) {}
+            Button("Sign Out", role: .destructive) {
+                signOut()
+            }
+        } message: {
+            Text("Signing out will delete your guest data. Are you sure?")
         }
     }
     

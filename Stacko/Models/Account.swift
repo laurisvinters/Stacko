@@ -12,6 +12,8 @@ struct Account: Identifiable, Codable {
     var isArchived: Bool
     var notes: String?
     var lastReconciled: Date?
+    var initialBalance: Double
+    var createdAt: Date
     
     enum AccountType: String, Codable, CaseIterable {
         case cash = "Cash"
@@ -46,7 +48,9 @@ struct Account: Identifiable, Codable {
         icon: String? = nil,
         isArchived: Bool = false,
         notes: String? = nil,
-        lastReconciled: Date? = nil
+        lastReconciled: Date? = nil,
+        initialBalance: Double = 0,
+        createdAt: Date = Date()
     ) {
         self.id = id
         self.name = name
@@ -58,6 +62,8 @@ struct Account: Identifiable, Codable {
         self.isArchived = isArchived
         self.notes = notes
         self.lastReconciled = lastReconciled
+        self.initialBalance = initialBalance
+        self.createdAt = createdAt
     }
     
     // Convert to Firestore data
@@ -72,7 +78,9 @@ struct Account: Identifiable, Codable {
             "icon": icon,
             "isArchived": isArchived,
             "notes": notes as Any,
-            "lastReconciled": lastReconciled as Any
+            "lastReconciled": lastReconciled as Any,
+            "initialBalance": initialBalance,
+            "createdAt": createdAt
         ]
     }
     
@@ -89,7 +97,9 @@ struct Account: Identifiable, Codable {
             let balance = data["balance"] as? Double,
             let clearedBalance = data["clearedBalance"] as? Double,
             let icon = data["icon"] as? String,
-            let isArchived = data["isArchived"] as? Bool
+            let isArchived = data["isArchived"] as? Bool,
+            let initialBalance = data["initialBalance"] as? Double,
+            let createdAt = data["createdAt"] as? Timestamp
         else { return nil }
         
         return Account(
@@ -102,7 +112,9 @@ struct Account: Identifiable, Codable {
             icon: icon,
             isArchived: isArchived,
             notes: data["notes"] as? String,
-            lastReconciled: (data["lastReconciled"] as? Timestamp)?.dateValue()
+            lastReconciled: (data["lastReconciled"] as? Timestamp)?.dateValue(),
+            initialBalance: initialBalance,
+            createdAt: createdAt.dateValue()
         )
     }
 } 

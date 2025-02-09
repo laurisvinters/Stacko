@@ -69,7 +69,7 @@ struct ConvertGuestAccountView: View {
         
         Task {
             do {
-                try await authManager.signUp(email: email, password: password, name: name)
+                try await authManager.convertGuestAccount(email: email, password: password, name: name)
                 dismiss()
             } catch {
                 errorMessage = error.localizedDescription
