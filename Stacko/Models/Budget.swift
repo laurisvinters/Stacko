@@ -688,7 +688,7 @@ class Budget: ObservableObject {
             id: UUID(),
             date: date,
             payee: "Transfer",
-            categoryId: categoryGroups.first?.categories.first?.id ?? UUID(),
+            categoryId: UUID(), // Use a dummy UUID since transfers don't affect categories
             amount: -amount,
             note: note,
             isIncome: false,
@@ -701,7 +701,7 @@ class Budget: ObservableObject {
             id: UUID(),
             date: date,
             payee: "Transfer",
-            categoryId: categoryGroups.first?.categories.first?.id ?? UUID(),
+            categoryId: UUID(), // Use a dummy UUID since transfers don't affect categories
             amount: amount,
             note: note,
             isIncome: true,
@@ -743,22 +743,6 @@ class Budget: ObservableObject {
                 .collection("accounts")
                 .document(toAccountId.uuidString)
             batch.setData(updatedToAccount.toFirestore(), forDocument: toAccountRef)
-        }
-        
-        // Update categories if needed
-        if let (fromGroupIndex, fromCategoryIndex) = findCategory(byId: withdrawal.categoryId) {
-            var updatedGroup = categoryGroups[fromGroupIndex]
-            updatedGroup.categories[fromCategoryIndex].spent -= amount
-            
-            let groupRef = db.collection("users").document(userId)
-                .collection("categoryGroups")
-                .document(updatedGroup.id.uuidString)
-            
-            // Only update the categories field
-            let groupData: [String: Any] = [
-                "categories": updatedGroup.categories.map { $0.toFirestore() }
-            ]
-            batch.setData(groupData, forDocument: groupRef, merge: true)
         }
         
         // Commit all changes
