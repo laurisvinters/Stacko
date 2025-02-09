@@ -177,7 +177,7 @@ struct QuickAddTransactionSheet: View {
                         }
                     }
                     
-                    DatePicker("Date", selection: $date, displayedComponents: .date)
+                    DatePicker("Date & Time", selection: $date, displayedComponents: [.date, .hourAndMinute])
                 }
             }
             .navigationTitle(existingTransaction == nil ? "Add Transaction" : "Edit Transaction")
