@@ -5,6 +5,7 @@ struct ManageCategoriesView: View {
     @State private var editingCategory: Category?
     @State private var showingDeleteAlert = false
     @State private var categoryToDelete: (UUID, UUID)? // (groupId, categoryId)
+    @State private var showingAddCategory = false
     
     var body: some View {
         List {
@@ -46,6 +47,18 @@ struct ManageCategoriesView: View {
             }
         }
         .navigationTitle("Manage Categories")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showingAddCategory = true
+                } label: {
+                    Image(systemName: "plus")
+                }
+            }
+        }
+        .sheet(isPresented: $showingAddCategory) {
+            AddCategorySheet(budget: budget)
+        }
         .sheet(isPresented: Binding(
             get: { editingCategory != nil },
             set: { if !$0 { editingCategory = nil } }

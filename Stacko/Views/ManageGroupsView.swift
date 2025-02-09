@@ -24,6 +24,7 @@ struct ManageGroupsView: View {
     @State private var showingDeleteAlert = false
     @State private var groupToDelete: UUID?
     @State private var editingName = ""
+    @State private var showingAddGroup = false
     
     var body: some View {
         List {
@@ -61,6 +62,18 @@ struct ManageGroupsView: View {
             }
         }
         .navigationTitle("Manage Groups")
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showingAddGroup = true
+                } label: {
+                    Image(systemName: "plus")
+                }
+            }
+        }
+        .sheet(isPresented: $showingAddGroup) {
+            AddGroupSheet(budget: budget)
+        }
         .sheet(item: $editingGroup) { group in
             NavigationStack {
                 EditGroupView(budget: budget, group: group, name: group.name)

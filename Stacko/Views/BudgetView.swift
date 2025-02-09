@@ -4,8 +4,6 @@ struct BudgetView: View {
     @ObservedObject var budget: Budget
     @Binding var isEditing: Bool
     @State private var selectedCategory: Category?
-    @State private var showingAddCategory = false
-    @State private var showingAddGroup = false
     @State private var isRearrangingGroups = false
     @State private var editMode: EditMode = .inactive
     
@@ -107,19 +105,6 @@ struct BudgetView: View {
             ToolbarItem(placement: .navigationBarLeading) {
                 HStack(spacing: 16) {
                     if !isRearrangingGroups {
-                        if editMode == .inactive {
-                            Menu {
-                                Button("Add Category") {
-                                    showingAddCategory = true
-                                }
-                                Button("Add Group") {
-                                    showingAddGroup = true
-                                }
-                            } label: {
-                                Label("Add", systemImage: "plus")
-                            }
-                        }
-                        
                         Button {
                             withAnimation {
                                 editMode = editMode == .active ? .inactive : .active
@@ -158,12 +143,6 @@ struct BudgetView: View {
         .navigationTitle("Budget")
         .sheet(item: $selectedCategory) { category in
             CategoryDetailSheet(budget: budget, category: category)
-        }
-        .sheet(isPresented: $showingAddCategory) {
-            AddCategorySheet(budget: budget)
-        }
-        .sheet(isPresented: $showingAddGroup) {
-            AddGroupSheet(budget: budget)
         }
     }
     

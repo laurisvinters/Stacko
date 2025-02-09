@@ -285,13 +285,36 @@ class Budget: ObservableObject {
             categories: []
         )
         
+        // Get all current groups to find the highest order
         db.collection("users").document(userId)
             .collection("categoryGroups")
-            .document(group.id.uuidString)
-            .setData(group.toFirestore()) { error in
+            .getDocuments { snapshot, error in
                 if let error = error {
-                    print("Error adding category group: \(error.localizedDescription)")
+                    print("Error getting groups for order: \(error.localizedDescription)")
+                    return
                 }
+                
+                // Find the highest order value
+                var highestOrder = -1
+                snapshot?.documents.forEach { document in
+                    if let order = document.data()["order"] as? Int {
+                        highestOrder = max(highestOrder, order)
+                    }
+                }
+                
+                // Create group data with order field
+                var groupData = group.toFirestore()
+                groupData["order"] = highestOrder + 1
+                
+                // Save the new group
+                self.db.collection("users").document(userId)
+                    .collection("categoryGroups")
+                    .document(group.id.uuidString)
+                    .setData(groupData) { error in
+                        if let error = error {
+                            print("Error adding category group: \(error.localizedDescription)")
+                        }
+                    }
             }
         
         return group
@@ -321,7 +344,12 @@ class Budget: ObservableObject {
             
             group.categories.append(category)
             
-            groupRef.setData(group.toFirestore()) { error in
+            // Only update the categories field to preserve other fields like order
+            let groupData: [String: Any] = [
+                "categories": group.categories.map { $0.toFirestore() }
+            ]
+            
+            groupRef.setData(groupData, merge: true) { error in
                 if let error = error {
                     print("Error updating category group: \(error.localizedDescription)")
                 }
@@ -725,7 +753,12 @@ class Budget: ObservableObject {
             let groupRef = db.collection("users").document(userId)
                 .collection("categoryGroups")
                 .document(updatedGroup.id.uuidString)
-            batch.setData(updatedGroup.toFirestore(), forDocument: groupRef)
+            
+            // Only update the categories field
+            let groupData: [String: Any] = [
+                "categories": updatedGroup.categories.map { $0.toFirestore() }
+            ]
+            batch.setData(groupData, forDocument: groupRef, merge: true)
         }
         
         // Commit all changes
@@ -838,8 +871,6 @@ class Budget: ObservableObject {
             return
         }
         
-        print("Budget: Updating transaction \(oldTransaction.id) for user \(userId)")
-        
         let batch = db.batch()
         
         // Update transaction document
@@ -848,97 +879,76 @@ class Budget: ObservableObject {
             .document(oldTransaction.id.uuidString)
         batch.setData(newTransaction.toFirestore(), forDocument: transactionRef)
         
-        // Update category spent amounts
-        if oldTransaction.categoryId == newTransaction.categoryId {
-            // Same category, just update the difference
-            if let (groupIndex, categoryIndex) = findCategory(byId: oldTransaction.categoryId) {
-                var updatedGroup = categoryGroups[groupIndex]
-                // For income, we don't affect the spent amount
-                if !oldTransaction.isIncome && !newTransaction.isIncome {
-                    // Remove old amount and add new amount
-                    updatedGroup.categories[categoryIndex].spent = updatedGroup.categories[categoryIndex].spent - oldTransaction.amount + newTransaction.amount
-                }
-                
-                let groupRef = db.collection("users").document(userId)
-                    .collection("categoryGroups")
-                    .document(updatedGroup.id.uuidString)
-                batch.setData(updatedGroup.toFirestore(), forDocument: groupRef)
-            }
-        } else {
-            // Different categories, update both
-            // Update old category's spent amount
-            if let (oldGroupIndex, oldCategoryIndex) = findCategory(byId: oldTransaction.categoryId) {
-                var updatedOldGroup = categoryGroups[oldGroupIndex]
-                // For income, we don't affect the spent amount
-                if !oldTransaction.isIncome {
-                    updatedOldGroup.categories[oldCategoryIndex].spent -= oldTransaction.amount
-                }
-                
-                let oldGroupRef = db.collection("users").document(userId)
-                    .collection("categoryGroups")
-                    .document(updatedOldGroup.id.uuidString)
-                batch.setData(updatedOldGroup.toFirestore(), forDocument: oldGroupRef)
+        // Update old category's spent amount
+        if let (oldGroupIndex, oldCategoryIndex) = findCategory(byId: oldTransaction.categoryId) {
+            var updatedOldGroup = categoryGroups[oldGroupIndex]
+            // For income, we don't affect the spent amount
+            if !oldTransaction.isIncome {
+                updatedOldGroup.categories[oldCategoryIndex].spent += oldTransaction.amount
             }
             
-            // Update new category's spent amount
-            if let (newGroupIndex, newCategoryIndex) = findCategory(byId: newTransaction.categoryId) {
-                var updatedNewGroup = categoryGroups[newGroupIndex]
-                // For income, we don't affect the spent amount
-                if !newTransaction.isIncome {
-                    updatedNewGroup.categories[newCategoryIndex].spent += newTransaction.amount
-                }
-                
-                let newGroupRef = db.collection("users").document(userId)
-                    .collection("categoryGroups")
-                    .document(updatedNewGroup.id.uuidString)
-                batch.setData(updatedNewGroup.toFirestore(), forDocument: newGroupRef)
-            }
+            let oldGroupRef = db.collection("users").document(userId)
+                .collection("categoryGroups")
+                .document(updatedOldGroup.id.uuidString)
+            
+            // Only update the categories field
+            let oldGroupData: [String: Any] = [
+                "categories": updatedOldGroup.categories.map { $0.toFirestore() }
+            ]
+            batch.setData(oldGroupData, forDocument: oldGroupRef, merge: true)
         }
         
-        // If same account, update its balance with the difference
-        if oldTransaction.accountId == newTransaction.accountId {
-            if let accountIndex = accounts.firstIndex(where: { $0.id == oldTransaction.accountId }) {
-                var updatedAccount = accounts[accountIndex]
-                // Remove old transaction's effect and add new transaction's effect
-                updatedAccount.balance = updatedAccount.balance - oldTransaction.amount + newTransaction.amount
-                updatedAccount.clearedBalance = updatedAccount.clearedBalance - oldTransaction.amount + newTransaction.amount
-                
-                let accountRef = db.collection("users").document(userId)
-                    .collection("accounts")
-                    .document(updatedAccount.id.uuidString)
-                batch.setData(updatedAccount.toFirestore(), forDocument: accountRef)
-            }
-        } else {
-            // Different accounts, update both
-            if let oldAccountIndex = accounts.firstIndex(where: { $0.id == oldTransaction.accountId }) {
-                var updatedOldAccount = accounts[oldAccountIndex]
-                updatedOldAccount.balance -= oldTransaction.amount
-                updatedOldAccount.clearedBalance -= oldTransaction.amount
-                
-                let oldAccountRef = db.collection("users").document(userId)
-                    .collection("accounts")
-                    .document(updatedOldAccount.id.uuidString)
-                batch.setData(updatedOldAccount.toFirestore(), forDocument: oldAccountRef)
+        // Update new category's spent amount (if different from old category)
+        if oldTransaction.categoryId != newTransaction.categoryId,
+           let (newGroupIndex, newCategoryIndex) = findCategory(byId: newTransaction.categoryId) {
+            var updatedNewGroup = categoryGroups[newGroupIndex]
+            // For income, we don't affect the spent amount
+            if !newTransaction.isIncome {
+                updatedNewGroup.categories[newCategoryIndex].spent += newTransaction.amount
             }
             
-            if let newAccountIndex = accounts.firstIndex(where: { $0.id == newTransaction.accountId }) {
-                var updatedNewAccount = accounts[newAccountIndex]
-                updatedNewAccount.balance += newTransaction.amount
-                updatedNewAccount.clearedBalance += newTransaction.amount
-                
-                let newAccountRef = db.collection("users").document(userId)
-                    .collection("accounts")
-                    .document(updatedNewAccount.id.uuidString)
-                batch.setData(updatedNewAccount.toFirestore(), forDocument: newAccountRef)
-            }
+            let newGroupRef = db.collection("users").document(userId)
+                .collection("categoryGroups")
+                .document(updatedNewGroup.id.uuidString)
+            
+            // Only update the categories field
+            let newGroupData: [String: Any] = [
+                "categories": updatedNewGroup.categories.map { $0.toFirestore() }
+            ]
+            batch.setData(newGroupData, forDocument: newGroupRef, merge: true)
+        }
+        
+        // Update old account balance
+        if let oldAccountIndex = accounts.firstIndex(where: { $0.id == oldTransaction.accountId }) {
+            var updatedOldAccount = accounts[oldAccountIndex]
+            updatedOldAccount.balance -= oldTransaction.amount
+            // For now, assume all transactions affect cleared balance
+            updatedOldAccount.clearedBalance -= oldTransaction.amount
+            
+            let oldAccountRef = db.collection("users").document(userId)
+                .collection("accounts")
+                .document(updatedOldAccount.id.uuidString)
+            batch.setData(updatedOldAccount.toFirestore(), forDocument: oldAccountRef)
+        }
+        
+        // Update new account balance (if different from old account)
+        if oldTransaction.accountId != newTransaction.accountId,
+           let newAccountIndex = accounts.firstIndex(where: { $0.id == newTransaction.accountId }) {
+            var updatedNewAccount = accounts[newAccountIndex]
+            updatedNewAccount.balance += newTransaction.amount
+            // For now, assume all transactions affect cleared balance
+            updatedNewAccount.clearedBalance += newTransaction.amount
+            
+            let newAccountRef = db.collection("users").document(userId)
+                .collection("accounts")
+                .document(updatedNewAccount.id.uuidString)
+            batch.setData(updatedNewAccount.toFirestore(), forDocument: newAccountRef)
         }
         
         // Commit all changes
         batch.commit { error in
             if let error = error {
                 print("Budget: Error updating transaction: \(error.localizedDescription)")
-            } else {
-                print("Budget: Successfully updated transaction \(oldTransaction.id)")
             }
         }
     }
