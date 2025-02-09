@@ -73,11 +73,23 @@ struct QuickAddTransactionSheet: View {
         } else {
             // For new transactions, use the provided categoryId if available
             _selectedCategoryId = State(initialValue: categoryId)
+            
+            // Set the default account to the one from the last transaction
+            if let lastTransaction = budget.transactions.sorted(by: { $0.date > $1.date }).first {
+                _selectedAccountId = State(initialValue: lastTransaction.accountId)
+            } else if let firstAccount = budget.accounts.filter({ !$0.isArchived }).first {
+                // If no transactions exist, use the first non-archived account
+                _selectedAccountId = State(initialValue: firstAccount.id)
+            }
         }
     }
     
     private var sortedCategoryGroups: [CategoryGroup] {
-        // Always include all groups, regardless of transaction type
+        if isIncome && !showAllCategories {
+            // Only show Income group when income is selected and not showing all categories
+            return budget.categoryGroups.filter { $0.name == "Income" }
+        }
+        // Show all groups when showing all categories or when it's an expense
         return budget.categoryGroups
     }
     
@@ -139,7 +151,7 @@ struct QuickAddTransactionSheet: View {
                                         Button(action: {
                                             showAllCategories = true
                                         }) {
-                                            Text("Show all categories")
+                                            Text("See more categories")
                                                 .foregroundColor(.blue)
                                         }
                                     }
@@ -151,6 +163,7 @@ struct QuickAddTransactionSheet: View {
                                 ToolbarItem(placement: .cancellationAction) {
                                     Button("Cancel") {
                                         showCategoryPicker = false
+                                        showAllCategories = false
                                     }
                                 }
                             }
