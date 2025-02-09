@@ -41,6 +41,27 @@ class AuthenticationManager: ObservableObject {
             createdAt: firebaseUser.metadata.creationDate ?? Date(),
             lastLoginAt: firebaseUser.metadata.lastSignInDate ?? Date()
         )
+        
+        // Check if this is a guest user by fetching the user document
+        Task {
+            do {
+                let snapshot = try await db.collection("users").document(firebaseUser.uid).getDocument()
+                if let data = snapshot.data(), let isGuest = data["isGuest"] as? Bool {
+                    DispatchQueue.main.async {
+                        self.isGuest = isGuest
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        self.isGuest = false
+                    }
+                }
+            } catch {
+                print("Error checking guest status: \(error)")
+                DispatchQueue.main.async {
+                    self.isGuest = false
+                }
+            }
+        }
     }
     
     func signIn(email: String, password: String) async throws {
