@@ -37,9 +37,22 @@
 		A43F11822D2589B80006557C /* StackoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = StackoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		A490C9F32D5A6824008187AE /* Exceptions for "Stacko" folder in "Stacko" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = A43F11672D2589B50006557C /* Stacko */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A43F116A2D2589B50006557C /* Stacko */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A490C9F32D5A6824008187AE /* Exceptions for "Stacko" folder in "Stacko" target */,
+			);
 			path = Stacko;
 			sourceTree = "<group>";
 		};
@@ -418,6 +431,7 @@
 				DEVELOPMENT_TEAM = BSK69L32R6;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Stacko/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Stacko;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -450,6 +464,7 @@
 				DEVELOPMENT_TEAM = BSK69L32R6;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Stacko/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Stacko;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
