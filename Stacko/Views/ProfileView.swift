@@ -49,6 +49,20 @@ struct ProfileView: View {
                         Image(systemName: "folder.fill.badge.gearshape")
                     }
                 }
+                
+                NavigationLink {
+                    if let userId = Auth.auth().currentUser?.uid {
+                        PlannedTransactionsView(userId: userId)
+                    }
+                } label: {
+                    HStack {
+                        Text("Planned Transactions")
+                            .foregroundColor(.blue)
+                        Spacer()
+                        Image(systemName: "calendar.badge.clock")
+                            .foregroundColor(.blue)
+                    }
+                }
             } header: {
                 Text("Budget Settings")
             }

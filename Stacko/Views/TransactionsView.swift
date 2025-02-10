@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseAuth
 
 struct TransactionsView: View {
     @ObservedObject var budget: Budget
@@ -8,6 +9,28 @@ struct TransactionsView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    NavigationLink {
+                        if let userId = Auth.auth().currentUser?.uid {
+                            PlannedTransactionsView(userId: userId)
+                        }
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text("Planned Transactions")
+                                    .font(.headline)
+                                Text("Set up recurring payments")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "calendar.badge.clock")
+                                .foregroundColor(.blue)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+
                 Section {
                     (Text("Swipe left to ")
                         .foregroundColor(.gray) +
@@ -23,6 +46,7 @@ struct TransactionsView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .listRowBackground(Color.clear)
                 }
+                .padding(.top, 20)
                 .listSectionSpacing(0)
                 
                 Section {
