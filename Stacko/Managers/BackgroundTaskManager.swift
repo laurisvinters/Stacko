@@ -44,8 +44,17 @@ class BackgroundTaskManager {
             
             let manager = PlannedTransactionManager(userId: userId)
             
+            // Create a continuation to wait for transactions to load
             Task {
                 do {
+                    try await withCheckedThrowingContinuation { continuation in
+                        // Wait for a short time to allow transactions to load
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                            continuation.resume()
+                        }
+                    }
+                    
+                    // Process transactions
                     try await manager.processAutomaticTransactions()
                     try await self.scheduleNotificationsForManualTransactions(manager: manager)
                 } catch {

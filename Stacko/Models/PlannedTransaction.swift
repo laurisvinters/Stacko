@@ -116,19 +116,27 @@ enum RecurrenceType: Codable, Hashable {
     }
 }
 
-struct PlannedTransaction: Identifiable {
+struct PlannedTransaction: Identifiable, Hashable {
     let id: UUID
     var title: String
     var amount: Double
     var categoryId: UUID?
     var accountId: UUID
-    var note: String?
+    var note: String
     var isIncome: Bool
     var type: PlannedTransactionType
     var recurrence: RecurrenceType
+    var isActive: Bool
     var nextDueDate: Date
     var lastProcessedDate: Date?
-    var isActive: Bool
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+    
+    static func == (lhs: PlannedTransaction, rhs: PlannedTransaction) -> Bool {
+        lhs.id == rhs.id
+    }
     
     func toFirestore() -> [String: Any] {
         var data: [String: Any] = [
@@ -136,19 +144,18 @@ struct PlannedTransaction: Identifiable {
             "title": title,
             "amount": amount,
             "accountId": accountId.uuidString,
+            "note": note,
             "isIncome": isIncome,
             "type": type.rawValue,
             "recurrence": recurrence.toFirestore(),
-            "nextDueDate": Timestamp(date: nextDueDate),
-            "isActive": isActive
+            "isActive": isActive,
+            "nextDueDate": Timestamp(date: nextDueDate)
         ]
         
         if let categoryId = categoryId {
             data["categoryId"] = categoryId.uuidString
         }
-        if let note = note {
-            data["note"] = note
-        }
+        
         if let lastProcessedDate = lastProcessedDate {
             data["lastProcessedDate"] = Timestamp(date: lastProcessedDate)
         }
@@ -157,30 +164,34 @@ struct PlannedTransaction: Identifiable {
     }
     
     static func fromFirestore(_ data: [String: Any]) -> PlannedTransaction? {
-        guard
-            let idString = data["id"] as? String,
-            let id = UUID(uuidString: idString),
-            let title = data["title"] as? String,
-            let amount = data["amount"] as? Double,
-            let accountIdString = data["accountId"] as? String,
-            let accountId = UUID(uuidString: accountIdString),
-            let isIncome = data["isIncome"] as? Bool,
-            let typeString = data["type"] as? String,
-            let type = PlannedTransactionType(rawValue: typeString),
-            let recurrenceData = data["recurrence"] as? [String: Any],
-            let recurrence = RecurrenceType.fromFirestore(recurrenceData),
-            let nextDueTimestamp = data["nextDueDate"] as? Timestamp,
-            let isActive = data["isActive"] as? Bool
-        else { return nil }
-        
-        var categoryId: UUID? = nil
-        if let categoryIdString = data["categoryId"] as? String {
-            categoryId = UUID(uuidString: categoryIdString)
+        guard let idString = data["id"] as? String,
+              let id = UUID(uuidString: idString),
+              let title = data["title"] as? String,
+              let amount = data["amount"] as? Double,
+              let accountIdString = data["accountId"] as? String,
+              let accountId = UUID(uuidString: accountIdString),
+              let isIncome = data["isIncome"] as? Bool,
+              let typeString = data["type"] as? String,
+              let type = PlannedTransactionType(rawValue: typeString),
+              let recurrenceData = data["recurrence"] as? [String: Any],
+              let recurrence = RecurrenceType.fromFirestore(recurrenceData),
+              let isActive = data["isActive"] as? Bool,
+              let nextDueTimestamp = data["nextDueDate"] as? Timestamp else {
+            return nil
         }
         
-        var lastProcessedDate: Date? = nil
+        let categoryId: UUID?
+        if let categoryIdString = data["categoryId"] as? String {
+            categoryId = UUID(uuidString: categoryIdString)
+        } else {
+            categoryId = nil
+        }
+        
+        let lastProcessedDate: Date?
         if let lastProcessedTimestamp = data["lastProcessedDate"] as? Timestamp {
             lastProcessedDate = lastProcessedTimestamp.dateValue()
+        } else {
+            lastProcessedDate = nil
         }
         
         return PlannedTransaction(
@@ -189,13 +200,13 @@ struct PlannedTransaction: Identifiable {
             amount: amount,
             categoryId: categoryId,
             accountId: accountId,
-            note: data["note"] as? String,
+            note: data["note"] as? String ?? "",
             isIncome: isIncome,
             type: type,
             recurrence: recurrence,
+            isActive: isActive,
             nextDueDate: nextDueTimestamp.dateValue(),
-            lastProcessedDate: lastProcessedDate,
-            isActive: isActive
+            lastProcessedDate: lastProcessedDate
         )
     }
     

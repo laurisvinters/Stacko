@@ -1,11 +1,17 @@
 import SwiftUI
 import FirebaseCore
+import FirebaseAuth
 import BackgroundTasks
 import UserNotifications
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
+        // Only configure Firebase if it hasn't been configured yet
+        if FirebaseApp.app() == nil {
+            FirebaseApp.configure()
+        }
+        
         // Register background tasks
         BackgroundTaskManager.shared.registerBackgroundTasks()
         
@@ -18,11 +24,28 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             }
         }
         
+        // Process transactions immediately
+        if let userId = Auth.auth().currentUser?.uid {
+            Task {
+                let manager = PlannedTransactionManager(userId: userId)
+                try? await manager.processAutomaticTransactions()
+            }
+        }
+        
         return true
     }
     
     func applicationDidEnterBackground(_ application: UIApplication) {
         BackgroundTaskManager.shared.scheduleTransactionProcessing()
+    }
+    
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        if let userId = Auth.auth().currentUser?.uid {
+            Task {
+                let manager = PlannedTransactionManager(userId: userId)
+                try? await manager.processAutomaticTransactions()
+            }
+        }
     }
 }
 

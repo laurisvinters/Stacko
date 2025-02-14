@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseAuth
 
 struct PlannedTransactionsView: View {
     let userId: String
@@ -13,6 +14,15 @@ struct PlannedTransactionsView: View {
     
     var body: some View {
         List {
+            Section {
+                Text(Date().formatted(.dateTime.weekday(.wide).month().day()))
+                    .font(.headline)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .foregroundColor(.primary)
+                    .listRowBackground(Color.clear)
+            }
+            .listSectionSpacing(0)
+            
             Section {
                 (Text("Swipe left to ")
                     .foregroundColor(.gray) +
@@ -30,8 +40,28 @@ struct PlannedTransactionsView: View {
             }
             .listSectionSpacing(0)
             
+            // Due Manual Transactions Section
+            if !dueManualTransactions.isEmpty {
+                Section("Due Manual Transactions") {
+                    ForEach(dueManualTransactions) { transaction in
+                        PlannedTransactionRow(transaction: transaction)
+                            .swipeActions(edge: .trailing) {
+                                Button {
+                                    Task {
+                                        try? await manager.processManualTransaction(transaction)
+                                    }
+                                } label: {
+                                    Label("Process", systemImage: "checkmark.circle")
+                                }
+                                .tint(.green)
+                            }
+                    }
+                }
+            }
+            
+            // Regular Transactions Section
             Section {
-                ForEach(manager.plannedTransactions) { transaction in
+                ForEach(regularTransactions) { transaction in
                     PlannedTransactionRow(transaction: transaction)
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             Button(role: .destructive) {
@@ -71,6 +101,19 @@ struct PlannedTransactionsView: View {
                 PlannedTransactionFormView(userId: userId, transaction: transaction)
             }
         }
+    }
+    
+    private var dueManualTransactions: [PlannedTransaction] {
+        manager.plannedTransactions.filter { transaction in
+            transaction.isActive &&
+            transaction.type == .manual &&
+            transaction.nextDueDate <= Date()
+        }
+    }
+    
+    private var regularTransactions: [PlannedTransaction] {
+        let dueManual = Set(dueManualTransactions)
+        return manager.plannedTransactions.filter { !dueManual.contains($0) }
     }
 }
 
@@ -115,6 +158,7 @@ struct PlannedTransactionFormView: View {
     var transaction: PlannedTransaction?
     @Environment(\.dismiss) private var dismiss
     @StateObject private var manager: PlannedTransactionManager
+    @StateObject private var accountManager: AccountManager = .shared
     
     @State private var title = ""
     @State private var amount = 0.0
@@ -127,6 +171,7 @@ struct PlannedTransactionFormView: View {
     @State private var selectedPeriod: RecurrenceType.RecurrencePeriod = .month
     @State private var customInterval = 1
     @State private var isCustom = false
+    @State private var selectedAccountId: UUID?
     
     init(userId: String, transaction: PlannedTransaction? = nil) {
         self.userId = userId
@@ -137,17 +182,21 @@ struct PlannedTransactionFormView: View {
             _title = State(initialValue: transaction.title)
             _amount = State(initialValue: transaction.amount)
             _isIncome = State(initialValue: transaction.isIncome)
-            _note = State(initialValue: transaction.note ?? "")
+            _note = State(initialValue: transaction.note)
             _type = State(initialValue: transaction.type)
             _recurrence = State(initialValue: transaction.recurrence)
             _nextDueDate = State(initialValue: transaction.nextDueDate)
             _isActive = State(initialValue: transaction.isActive)
+            _selectedAccountId = State(initialValue: transaction.accountId)
             
             if case .custom(let interval, let period) = transaction.recurrence {
                 _customInterval = State(initialValue: interval)
                 _selectedPeriod = State(initialValue: period)
                 _isCustom = State(initialValue: true)
             }
+        } else {
+            // Set default account if available
+            _selectedAccountId = State(initialValue: AccountManager.shared.accounts.first?.id)
         }
     }
     
@@ -159,6 +208,18 @@ struct PlannedTransactionFormView: View {
                     .keyboardType(.decimalPad)
                 Toggle("Income", isOn: $isIncome)
                 TextField("Note", text: $note)
+                
+                if !accountManager.accounts.isEmpty {
+                    Picker("Account", selection: $selectedAccountId.animation()) {
+                        ForEach(accountManager.accounts) { account in
+                            Text(account.name)
+                                .tag(account.id as UUID?)
+                        }
+                    }
+                } else {
+                    Text("No accounts available")
+                        .foregroundColor(.red)
+                }
             }
             
             Section("Schedule") {
@@ -213,6 +274,11 @@ struct PlannedTransactionFormView: View {
     
     private func save() {
         Task {
+            guard let accountId = selectedAccountId else {
+                print("Error: No account selected")
+                return
+            }
+            
             let finalRecurrence: RecurrenceType
             if isCustom {
                 finalRecurrence = .custom(interval: customInterval, period: selectedPeriod)
@@ -225,14 +291,14 @@ struct PlannedTransactionFormView: View {
                 title: title,
                 amount: amount,
                 categoryId: transaction?.categoryId,
-                accountId: transaction?.accountId ?? UUID(), // You'll need to handle this
-                note: note.isEmpty ? nil : note,
+                accountId: accountId,
+                note: note,
                 isIncome: isIncome,
                 type: type,
                 recurrence: finalRecurrence,
+                isActive: isActive,
                 nextDueDate: nextDueDate,
-                lastProcessedDate: transaction?.lastProcessedDate,
-                isActive: isActive
+                lastProcessedDate: transaction?.lastProcessedDate
             )
             
             do {
