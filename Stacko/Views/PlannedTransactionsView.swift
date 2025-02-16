@@ -147,6 +147,7 @@ struct PlannedTransactionRow: View {
         case .daily: return "Daily"
         case .weekly: return "Weekly"
         case .monthly: return "Monthly"
+        case .oneTime: return "One Time"
         case .custom(let interval, let period):
             return "Every \(interval) \(period.rawValue)s"
         }
@@ -172,6 +173,7 @@ struct PlannedTransactionFormView: View {
     @State private var customInterval = 1
     @State private var isCustom = false
     @State private var selectedAccountId: UUID?
+    @State private var isRecurring = true
     
     init(userId: String, transaction: PlannedTransaction? = nil) {
         self.userId = userId
@@ -195,8 +197,8 @@ struct PlannedTransactionFormView: View {
                 _isCustom = State(initialValue: true)
             }
         } else {
-            // Set default account if available
-            _selectedAccountId = State(initialValue: AccountManager.shared.accounts.first?.id)
+            // Set last used account or first available account
+            _selectedAccountId = State(initialValue: UserDefaults.standard.object(forKey: "LastUsedAccountId") as? UUID ?? AccountManager.shared.accounts.first?.id)
         }
     }
     
@@ -204,7 +206,7 @@ struct PlannedTransactionFormView: View {
         Form {
             Section("Transaction Details") {
                 TextField("Title", text: $title)
-                TextField("Amount", value: $amount, format: .currency(code: "USD"))
+                TextField("Amount", value: $amount, format: .number)
                     .keyboardType(.decimalPad)
                 Toggle("Income", isOn: $isIncome)
                 TextField("Note", text: $note)
@@ -216,39 +218,48 @@ struct PlannedTransactionFormView: View {
                                 .tag(account.id as UUID?)
                         }
                     }
+                    .onChange(of: selectedAccountId) { newValue in
+                        if let accountId = newValue {
+                            UserDefaults.standard.set(accountId.uuidString, forKey: "LastUsedAccountId")
+                        }
+                    }
                 } else {
                     Text("No accounts available")
                         .foregroundColor(.red)
                 }
             }
             
-            Section("Schedule") {
-                Picker("Type", selection: $type) {
-                    Text("Manual").tag(PlannedTransactionType.manual)
-                    Text("Automatic").tag(PlannedTransactionType.automatic)
-                }
-                
-                Toggle("Custom Recurrence", isOn: $isCustom)
-                
-                if isCustom {
-                    Stepper("Every \(customInterval) \(selectedPeriod.rawValue)\(customInterval == 1 ? "" : "s")", 
-                           value: $customInterval, in: 1...365)
+            Toggle("Recurring Transaction", isOn: $isRecurring)
+            
+            if isRecurring {
+                Section("Schedule") {
+                    Picker("Type", selection: $type) {
+                        Text("Manual").tag(PlannedTransactionType.manual)
+                        Text("Automatic").tag(PlannedTransactionType.automatic)
+                    }
                     
-                    Picker("Period", selection: $selectedPeriod) {
-                        Text("Day").tag(RecurrenceType.RecurrencePeriod.day)
-                        Text("Week").tag(RecurrenceType.RecurrencePeriod.week)
-                        Text("Month").tag(RecurrenceType.RecurrencePeriod.month)
-                        Text("Year").tag(RecurrenceType.RecurrencePeriod.year)
+                    Toggle("Custom Recurrence", isOn: $isCustom)
+                    
+                    if isCustom {
+                        Stepper("Every \(customInterval) \(selectedPeriod.rawValue)\(customInterval == 1 ? "" : "s")", 
+                               value: $customInterval, in: 1...365)
+                        
+                        Picker("Period", selection: $selectedPeriod) {
+                            Text("Day").tag(RecurrenceType.RecurrencePeriod.day)
+                            Text("Week").tag(RecurrenceType.RecurrencePeriod.week)
+                            Text("Month").tag(RecurrenceType.RecurrencePeriod.month)
+                            Text("Year").tag(RecurrenceType.RecurrencePeriod.year)
+                        }
+                    } else {
+                        Picker("Recurrence", selection: $recurrence) {
+                            Text("Daily").tag(RecurrenceType.daily)
+                            Text("Weekly").tag(RecurrenceType.weekly)
+                            Text("Monthly").tag(RecurrenceType.monthly)
+                        }
                     }
-                } else {
-                    Picker("Recurrence", selection: $recurrence) {
-                        Text("Daily").tag(RecurrenceType.daily)
-                        Text("Weekly").tag(RecurrenceType.weekly)
-                        Text("Monthly").tag(RecurrenceType.monthly)
-                    }
+                    
+                    DatePicker("Next Due Date", selection: $nextDueDate, displayedComponents: .date)
                 }
-                
-                DatePicker("Next Due Date", selection: $nextDueDate, displayedComponents: .date)
             }
             
             if transaction != nil {
@@ -280,10 +291,14 @@ struct PlannedTransactionFormView: View {
             }
             
             let finalRecurrence: RecurrenceType
-            if isCustom {
-                finalRecurrence = .custom(interval: customInterval, period: selectedPeriod)
+            if isRecurring {
+                if isCustom {
+                    finalRecurrence = .custom(interval: customInterval, period: selectedPeriod)
+                } else {
+                    finalRecurrence = recurrence
+                }
             } else {
-                finalRecurrence = recurrence
+                finalRecurrence = .oneTime
             }
             
             let newTransaction = PlannedTransaction(

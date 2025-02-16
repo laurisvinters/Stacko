@@ -10,6 +10,7 @@ enum RecurrenceType: Codable, Hashable {
     case daily
     case weekly
     case monthly
+    case oneTime
     case custom(interval: Int, period: RecurrencePeriod)
     
     enum RecurrencePeriod: String, Codable, Hashable {
@@ -34,6 +35,8 @@ enum RecurrenceType: Codable, Hashable {
             try container.encode("weekly", forKey: .type)
         case .monthly:
             try container.encode("monthly", forKey: .type)
+        case .oneTime:
+            try container.encode("oneTime", forKey: .type)
         case .custom(let interval, let period):
             try container.encode("custom", forKey: .type)
             try container.encode(interval, forKey: .interval)
@@ -52,6 +55,8 @@ enum RecurrenceType: Codable, Hashable {
             self = .weekly
         case "monthly":
             self = .monthly
+        case "oneTime":
+            self = .oneTime
         case "custom":
             let interval = try container.decode(Int.self, forKey: .interval)
             let period = try container.decode(RecurrencePeriod.self, forKey: .period)
@@ -69,6 +74,8 @@ enum RecurrenceType: Codable, Hashable {
             return ["type": "weekly"]
         case .monthly:
             return ["type": "monthly"]
+        case .oneTime:
+            return ["type": "oneTime"]
         case .custom(let interval, let period):
             return [
                 "type": "custom",
@@ -85,6 +92,7 @@ enum RecurrenceType: Codable, Hashable {
         case "daily": return .daily
         case "weekly": return .weekly
         case "monthly": return .monthly
+        case "oneTime": return .oneTime
         case "custom":
             guard let interval = data["interval"] as? Int,
                   let periodString = data["period"] as? String,
@@ -103,6 +111,8 @@ enum RecurrenceType: Codable, Hashable {
             return calendar.date(byAdding: .weekOfYear, value: 1, to: date) ?? date
         case .monthly:
             return calendar.date(byAdding: .month, value: 1, to: date) ?? date
+        case .oneTime:
+            return date
         case .custom(let interval, let period):
             let component: Calendar.Component
             switch period {

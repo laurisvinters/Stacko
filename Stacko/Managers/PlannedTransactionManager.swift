@@ -142,8 +142,6 @@ class PlannedTransactionManager: ObservableObject {
     }
     
     func processManualTransaction(_ transaction: PlannedTransaction) async throws {
-        var updatedTransaction = transaction
-        
         // Create actual transaction
         let newTransaction = Transaction(
             id: UUID(),
@@ -157,11 +155,6 @@ class PlannedTransactionManager: ObservableObject {
             toAccountId: nil
         )
         
-        // Update planned transaction
-        updatedTransaction.lastProcessedDate = transaction.nextDueDate
-        updatedTransaction.nextDueDate = transaction.calculateNextDueDate()
-        
-        // Save both changes
         let batch = db.batch()
         
         // Add new transaction
@@ -170,11 +163,19 @@ class PlannedTransactionManager: ObservableObject {
             .document(newTransaction.id.uuidString)
         batch.setData(newTransaction.toFirestore(), forDocument: transactionRef)
         
-        // Update planned transaction
+        // For one-time transactions, delete the planned transaction
+        // For recurring transactions, update the next due date
         let plannedTransactionRef = db.collection("users").document(userId)
             .collection("plannedTransactions")
             .document(transaction.id.uuidString)
-        batch.setData(updatedTransaction.toFirestore(), forDocument: plannedTransactionRef)
+            
+        if case .oneTime = transaction.recurrence {
+            batch.deleteDocument(plannedTransactionRef)
+        } else {
+            var updatedTransaction = transaction
+            updatedTransaction.nextDueDate = transaction.calculateNextDueDate()
+            batch.setData(updatedTransaction.toFirestore(), forDocument: plannedTransactionRef)
+        }
         
         // Update account balance
         let accountRef = db.collection("users").document(userId)
@@ -188,7 +189,7 @@ class PlannedTransactionManager: ObservableObject {
                 accountSnapshot = try transaction.getDocument(accountRef)
             } catch let error as NSError {
                 errorPointer?.pointee = error
-                return nil
+                return [:]
             }
             
             guard let accountData = accountSnapshot.data(),
@@ -198,7 +199,7 @@ class PlannedTransactionManager: ObservableObject {
                     NSLocalizedDescriptionKey: "Unable to get account data"
                 ])
                 errorPointer?.pointee = error
-                return nil
+                return [:]
             }
             
             // Update the balances
@@ -210,10 +211,11 @@ class PlannedTransactionManager: ObservableObject {
                 "clearedBalance": newClearedBalance
             ], forDocument: accountRef)
             
-            return nil
+            return [:]
         }
         
         // After successful transaction, commit the batch
         try await batch.commit()
+        print("Transaction processed successfully")
     }
 }
